@@ -1,8 +1,9 @@
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING, Callable, TypeVar, Set
 
 if TYPE_CHECKING:
     from ..client import DexPaprikaClient
 
+T = TypeVar('T')
 
 class BaseAPI:
     """Base class for all API service classes."""
@@ -56,5 +57,57 @@ class BaseAPI:
         return self.client.post(endpoint, data=data, params=params)
         
     def _clean_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        # clean none values from params
-        return {k: v for k, v in params.items() if v is not None} 
+        """Clean None values from params."""
+        return {k: v for k, v in params.items() if v is not None}
+    
+    def _validate_required(self, param_name: str, value: Any) -> None:
+        """
+        Validate that a required parameter is provided and not empty.
+        
+        Args:
+            param_name: Name of the parameter for error messages
+            value: Value to validate
+            
+        Raises:
+            ValueError: If the parameter is None or empty string
+        """
+        if value is None or (isinstance(value, str) and not value.strip()):
+            raise ValueError(f"{param_name} is required")
+    
+    def _validate_enum(self, param_name: str, value: Any, valid_values: Set[Any]) -> None:
+        """
+        Validate that a parameter value is in a set of valid values.
+        
+        Args:
+            param_name: Name of the parameter for error messages
+            value: Value to validate
+            valid_values: Set of accepted values
+            
+        Raises:
+            ValueError: If the value is not in the valid_values set
+        """
+        if value is not None and value not in valid_values:
+            valid_str = ", ".join([str(v) for v in valid_values])
+            raise ValueError(f"{param_name} must be one of: {valid_str}")
+    
+    def _validate_range(self, param_name: str, value: Union[int, float], min_val: Optional[Union[int, float]] = None, max_val: Optional[Union[int, float]] = None) -> None:
+        """
+        Validate that a numeric parameter is within a specified range.
+        
+        Args:
+            param_name: Name of the parameter for error messages
+            value: Value to validate
+            min_val: Minimum allowed value (inclusive)
+            max_val: Maximum allowed value (inclusive)
+            
+        Raises:
+            ValueError: If the value is outside the specified range
+        """
+        if value is None:
+            return
+            
+        if min_val is not None and value < min_val:
+            raise ValueError(f"{param_name} must be at least {min_val}")
+            
+        if max_val is not None and value > max_val:
+            raise ValueError(f"{param_name} must be at most {max_val}") 

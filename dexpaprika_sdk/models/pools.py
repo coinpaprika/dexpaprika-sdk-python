@@ -32,9 +32,9 @@ class Pool(BaseModel):
     created_at_block_number: int = Field(...)
     transactions: int = Field(...)
     price_usd: float = Field(...)
-    last_price_change_usd_5m: float = Field(...)
-    last_price_change_usd_1h: float = Field(...)
-    last_price_change_usd_24h: float = Field(...)
+    last_price_change_usd_5m: Optional[float] = Field(None)
+    last_price_change_usd_1h: Optional[float] = Field(None)
+    last_price_change_usd_24h: Optional[float] = Field(None)
     fee: Optional[float] = Field(None)
     tokens: List[Token] = Field(...)
 

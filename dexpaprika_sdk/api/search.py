@@ -16,7 +16,13 @@ class SearchAPI(BaseAPI):
             
         Returns:
             Search results across tokens, pools, and DEXes
+            
+        Raises:
+            ValueError: If the query parameter is invalid
         """
+        # Validate parameters
+        self._validate_required("query", query)
+        
         params = {"query": query}
         data = self._get("/search", params=params)
         return SearchResult(**data) 

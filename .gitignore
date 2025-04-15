@@ -55,6 +55,13 @@ ENV/
 env.bak/
 venv.bak/
 
+# OpenAPI files
+openapi_new.yml
+openapi_old.yml
+
+# SDK update instructions
+SDK_UPDATE_INSTRUCTIONS.md
+
 # IDE specific files
 .idea/
 .vscode/

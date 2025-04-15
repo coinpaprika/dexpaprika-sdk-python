@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Set
 
 from .base import BaseAPI
 from ..models.tokens import TokenDetails
@@ -8,6 +8,10 @@ from ..utils.perf import track_perf
 
 class TokensAPI(BaseAPI):
     """API service for token-related endpoints."""
+    
+    # Valid values for common parameters
+    VALID_SORT_VALUES: Set[str] = {"asc", "desc"}
+    VALID_ORDER_BY_VALUES: Set[str] = {"volume_usd", "price_usd", "transactions", "last_price_change_usd_24h", "created_at"}
     
     @track_perf
     def get_details(self, network_id: str, token_address: str) -> TokenDetails:
@@ -20,7 +24,14 @@ class TokensAPI(BaseAPI):
             
         Returns:
             Detailed information about the token
+            
+        Raises:
+            ValueError: If any parameter is invalid
         """
+        # Validate parameters
+        self._validate_required("network_id", network_id)
+        self._validate_required("token_address", token_address)
+        
         data = self._get(f"/networks/{network_id}/tokens/{token_address}")
         return TokenDetails(**data)
     
@@ -50,7 +61,18 @@ class TokensAPI(BaseAPI):
             
         Returns:
             Response containing a list of pools for the given token
+            
+        Raises:
+            ValueError: If any parameter is invalid
         """
+        # Validate parameters
+        self._validate_required("network_id", network_id)
+        self._validate_required("token_address", token_address)
+        self._validate_range("page", page, min_val=0)
+        self._validate_range("limit", limit, min_val=1, max_val=100)
+        self._validate_enum("sort", sort, self.VALID_SORT_VALUES)
+        self._validate_enum("order_by", order_by, self.VALID_ORDER_BY_VALUES)
+        
         params = {
             "page": page,
             "limit": limit,

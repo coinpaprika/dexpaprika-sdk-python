@@ -18,7 +18,15 @@ class DexesAPI(BaseAPI):
             
         Returns:
             Response containing list of DEXes
+            
+        Raises:
+            ValueError: If any parameter is invalid
         """
+        # Validate parameters
+        self._validate_required("network", network)
+        self._validate_range("page", page, min_val=0)
+        self._validate_range("limit", limit, min_val=1, max_val=100)
+        
         params = {
             "page": page,
             "limit": limit

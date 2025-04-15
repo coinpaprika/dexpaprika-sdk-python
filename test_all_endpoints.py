@@ -167,7 +167,7 @@ def main():
     print("TESTING SEARCH API")
     print_separator()
     
-    success, search_results = test_endpoint("search.search", lambda: client.search.search("bitcoin"))
+    success, search_results = test_endpoint("search.search", lambda: client.search.search("Jockey"))
     if success:
         success_count += 1
         print(f"Found {len(search_results.tokens)} tokens, {len(search_results.pools)} pools, and {len(search_results.dexes)} DEXes")
