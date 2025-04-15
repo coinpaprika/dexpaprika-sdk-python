@@ -8,6 +8,8 @@ A Python client for the DexPaprika API. This SDK provides easy access to real-ti
 - Query information about DEXes, liquidity pools, and tokens
 - Get detailed price information, trading volume, and transactions
 - Search across the entire DexPaprika ecosystem
+- Automatic parameter validation with clear error messages
+- Type-safe response objects using Pydantic models
 
 ## Installation
 
@@ -110,6 +112,73 @@ search_results = client.search.search("bitcoin")
 print(f"Found {len(search_results.tokens)} tokens and {len(search_results.pools)} pools")
 ```
 
+### Parameter Validation
+
+The SDK automatically validates parameters before making API requests to help you avoid errors:
+
+```python
+# Invalid parameter examples will raise helpful error messages
+try:
+    # Invalid network ID
+    client.pools.list_by_network(network_id="", limit=5)
+except ValueError as e:
+    print(e)  # "network_id is required"
+    
+try:
+    # Invalid sort parameter
+    client.pools.list(sort="invalid_sort")
+except ValueError as e:
+    print(e)  # "sort must be one of: asc, desc"
+    
+try:
+    # Invalid limit parameter
+    client.pools.list(limit=500)
+except ValueError as e:
+    print(e)  # "limit must be at most 100"
+```
+
+### Error Handling
+
+Handle API errors gracefully by using try/except blocks:
+
+```python
+try:
+    # Try to fetch pool details
+    pool_details = client.pools.get_details(
+        network_id="ethereum",
+        pool_address="0xInvalidAddress"
+    )
+except Exception as e:
+    if "404" in str(e):
+        print("Pool not found")
+    elif "429" in str(e):
+        print("Rate limit exceeded")
+    else:
+        print(f"An error occurred: {e}")
+```
+
+### Working with Models
+
+All API responses are converted to typed Pydantic models for easier access and better code reliability:
+
+```python
+# Get pool details
+pool = client.pools.get_details(
+    network_id="ethereum",
+    pool_address="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"
+)
+
+# Access pool properties
+print(f"Pool: {pool.tokens[0].symbol}/{pool.tokens[1].symbol}")
+print(f"Volume (24h): ${pool.day.volume_usd:.2f}")
+print(f"Transactions (24h): {pool.day.txns}")
+print(f"Price: ${pool.last_price_usd:.4f}")
+
+# Time interval data is available for multiple timeframes
+print(f"1h price change: {pool.hour1.last_price_usd_change:.2f}%")
+print(f"24h price change: {pool.day.last_price_usd_change:.2f}%")
+```
+
 ## API Reference
 
 The SDK provides the following main components:
@@ -120,6 +189,13 @@ The SDK provides the following main components:
 - `DexesAPI`: Get information about decentralized exchanges
 - `SearchAPI`: Search for tokens, pools, and DEXes
 - `UtilsAPI`: Utility endpoints like global statistics
+
+## Resources
+
+- [Official Documentation](https://docs.dexpaprika.com) - Comprehensive API reference
+- [DexPaprika Website](https://dexpaprika.com) - Main product website
+- [CoinPaprika](https://coinpaprika.com) - Related cryptocurrency data platform
+- [Discord Community](https://discord.gg/DhJge5TUGM) - Get support and connect with other developers
 
 ## License
 
