@@ -10,6 +10,8 @@ A Python client for the DexPaprika API. This SDK provides easy access to real-ti
 - Search across the entire DexPaprika ecosystem
 - Automatic parameter validation with clear error messages
 - Type-safe response objects using Pydantic models
+- Built-in retry with exponential backoff for API failures
+- Intelligent caching system with TTL-based expiration
 
 ## Installation
 
@@ -111,6 +113,55 @@ ohlcv_data = client.pools.get_ohlcv(
 search_results = client.search.search("bitcoin")
 print(f"Found {len(search_results.tokens)} tokens and {len(search_results.pools)} pools")
 ```
+
+### Caching System
+
+The SDK includes an intelligent caching system that helps reduce API calls and improve performance:
+
+```python
+# Caching is enabled by default for all GET requests
+# First request will be fetched from the API
+networks = client.networks.list()
+
+# Subsequent requests will use the cached data (faster)
+cached_networks = client.networks.list()
+
+# You can skip the cache when you need fresh data
+fresh_networks = client.networks._get("/networks", skip_cache=True)
+
+# Clear the entire cache
+client.clear_cache()
+
+# Clear cache only for specific endpoints
+client.clear_cache(endpoint_prefix="/networks")
+```
+
+Different types of data have different cache durations:
+- Network data: 24 hours
+- Pool data: 5 minutes
+- Token data: 10 minutes
+- Statistics: 15 minutes
+- Other data: 5 minutes (default)
+
+### Retry with Backoff
+
+The SDK automatically retries failed API requests with exponential backoff:
+
+```python
+# Create a client with custom retry settings
+client = DexPaprikaClient(
+    max_retries=4,  # Number of retry attempts (default: 4)
+    backoff_times=[0.1, 0.5, 1.0, 5.0]  # Backoff times in seconds
+)
+
+# All API requests will now use these retry settings
+# The SDK will retry automatically on connection errors and server errors (5xx)
+```
+
+Default retry behavior:
+- Retries up to 4 times on connection errors, timeouts, and server errors (5xx)
+- Uses backoff intervals of 100ms, 500ms, 1s, and 5s with random jitter
+- Does not retry on client errors (4xx) like 404 or 403
 
 ### Parameter Validation
 
