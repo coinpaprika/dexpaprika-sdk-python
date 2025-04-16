@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="dexpaprika-sdk",
-    version="0.1.0",
+    version="0.2.0",
     description="Python SDK for the DexPaprika API",
     author="CoinPaprika",
     author_email="support@coinpaprika.com",
