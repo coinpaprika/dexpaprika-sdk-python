@@ -9,7 +9,7 @@ class TokenSummary(BaseModel):
     """Summary metrics for a token."""
     
     price_usd: float = Field(..., description="Current price in USD")
-    fdv: float = Field(..., description="Fully diluted valuation")
+    fdv: Optional[float] = Field(None, description="Fully diluted valuation (may be None for some chains like Solana)")
     liquidity_usd: float = Field(..., description="Total liquidity in USD")
     pools: Optional[int] = Field(None, description="Number of pools containing the token")
     
@@ -34,7 +34,7 @@ class TokenDetails(BaseModel):
     symbol: str = Field(..., description="Token symbol")
     chain: str = Field(..., description="Network the token is on")
     decimals: int = Field(..., description="Decimal precision of the token")
-    total_supply: float = Field(..., description="Total supply of the token")
+    total_supply: Optional[float] = Field(None, description="Total supply of the token (may be None for some chains like Solana)")
     description: str = Field("", description="Token description")
     website: str = Field("", description="Token website URL")
     explorer: str = Field("", description="Token explorer URL")
@@ -51,7 +51,7 @@ class TokenDetailsLight(BaseModel):
     symbol: str = Field(..., description="Token symbol")
     chain: str = Field(..., description="Network the token is on")
     decimals: int = Field(..., description="Decimal precision of the token")
-    total_supply: float = Field(..., description="Total supply of the token")
+    total_supply: Optional[float] = Field(None, description="Total supply of the token (may be None for some chains like Solana)")
     description: str = Field("", description="Token description")
     website: str = Field("", description="Token website URL")
     explorer: str = Field("", description="Token explorer URL")
