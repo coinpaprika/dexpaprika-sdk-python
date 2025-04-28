@@ -10,7 +10,7 @@ readme = "README.md"
 authors = [
     {name = "CoinPaprika", email = "support@coinpaprika.com"}
 ]
-license = "MIT"
+license = {text = "MIT"}
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 4 - Beta",
