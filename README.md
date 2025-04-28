@@ -2,6 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/dexpaprika-sdk.svg)](https://badge.fury.io/py/dexpaprika-sdk)
 [![Python Version](https://img.shields.io/pypi/pyversions/dexpaprika-sdk)](https://pypi.org/project/dexpaprika-sdk/)
+[![Tests](https://github.com/coinpaprika/dexpaprika-sdk-python/actions/workflows/tests.yml/badge.svg)](https://github.com/coinpaprika/dexpaprika-sdk-python/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Python client for the DexPaprika API. This SDK provides easy access to real-time data from decentralized exchanges across multiple blockchain networks.
