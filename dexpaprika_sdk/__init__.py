@@ -11,6 +11,24 @@ across multiple blockchain networks.
 """
 
 from .client import DexPaprikaClient
+# Import models for easier access
+from .models import (
+    Network, Dex, DexesResponse,
+    Token, Pool, PoolsResponse, TimeIntervalMetrics,
+    PoolDetails, OHLCVRecord, Transaction, TransactionsResponse,
+    TokenSummary, TokenDetails,
+    DexInfo, SearchResult,
+    Stats
+)
 
 __version__ = "0.2.0"
-__all__ = ["DexPaprikaClient"]
+__all__ = [
+    "DexPaprikaClient",
+    # Models
+    "Network", "Dex", "DexesResponse",
+    "Token", "Pool", "PoolsResponse", "TimeIntervalMetrics",
+    "PoolDetails", "OHLCVRecord", "Transaction", "TransactionsResponse",
+    "TokenSummary", "TokenDetails",
+    "DexInfo", "SearchResult",
+    "Stats"
+]

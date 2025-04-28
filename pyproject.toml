@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dexpaprika-sdk"
+dynamic = ["version", "optional-dependencies"]  # Version is read from dexpaprika_sdk/__init__.py
+description = "Python SDK for the DexPaprika API"
+readme = "README.md"
+authors = [
+    {name = "CoinPaprika", email = "support@coinpaprika.com"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+keywords = ["dexpaprika", "crypto", "blockchain", "defi", "api", "sdk"]
+dependencies = [
+    "requests>=2.25.0",
+    "pydantic>=2.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/coinpaprika/dexpaprika-sdk-python"
+"Bug Tracker" = "https://github.com/coinpaprika/dexpaprika-sdk-python/issues"
+"Documentation" = "https://docs.dexpaprika.com" 

@@ -1,5 +1,10 @@
 # DexPaprika Python SDK
 
+[![PyPI version](https://badge.fury.io/py/dexpaprika-sdk.svg)](https://badge.fury.io/py/dexpaprika-sdk)
+[![Python Version](https://img.shields.io/pypi/pyversions/dexpaprika-sdk)](https://pypi.org/project/dexpaprika-sdk/)
+[![Tests](https://github.com/coinpaprika/dexpaprika-sdk-python/actions/workflows/tests.yml/badge.svg)](https://github.com/coinpaprika/dexpaprika-sdk-python/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A Python client for the DexPaprika API. This SDK provides easy access to real-time data from decentralized exchanges across multiple blockchain networks.
 
 ## Features
@@ -241,12 +246,47 @@ The SDK provides the following main components:
 - `SearchAPI`: Search for tokens, pools, and DEXes
 - `UtilsAPI`: Utility endpoints like global statistics
 
+## Publishing
+
+For developers contributing to this package, here's how to publish a new version:
+
+1. Update the version in `dexpaprika_sdk/__init__.py`
+2. Update the `CHANGELOG.md`
+3. Create a new release in GitHub
+4. GitHub Actions will automatically build and publish to PyPI
+
+## Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/coinpaprika/dexpaprika-sdk-python.git
+cd dexpaprika-sdk-python
+
+# Create a virtual environment (optional)
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dev dependencies
+pip install -e ".[dev]"
+```
+
+## Running Tests
+
+```bash
+# Run tests with pytest
+pytest
+
+# Run with coverage
+pytest --cov=dexpaprika_sdk tests/
+```
+
 ## Resources
 
 - [Official Documentation](https://docs.dexpaprika.com) - Comprehensive API reference
 - [DexPaprika Website](https://dexpaprika.com) - Main product website
 - [CoinPaprika](https://coinpaprika.com) - Related cryptocurrency data platform
 - [Discord Community](https://discord.gg/DhJge5TUGM) - Get support and connect with other developers
+- [PyPI Package](https://pypi.org/project/dexpaprika-sdk/) - Python package details
 
 ## License
 
