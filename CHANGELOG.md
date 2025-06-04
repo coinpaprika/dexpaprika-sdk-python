@@ -5,6 +5,42 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-01-27
+
+### Breaking Changes
+- **DEPRECATED**: Global pools method `pools.list()` due to DexPaprika API v1.3.0 changes
+- **MIGRATION REQUIRED**: The global `/pools` endpoint now returns `410 Gone`
+- All pool operations now require network specification for better performance
+
+### Added
+- Automatic fallback for deprecated `pools.list()` method to Ethereum network
+- New `reorder` parameter in `tokens.get_pools()` method for reordering pool metrics
+- Comprehensive deprecation warnings with migration guidance
+- Enhanced error handling for `410 Gone` responses
+
+### Changed
+- Updated SDK version to 0.3.0 to reflect API compatibility with DexPaprika v1.3.0
+- Improved documentation with migration examples
+- Updated user agent string to match new SDK version
+
+### Migration Guide
+```python
+# Before (deprecated):
+pools = client.pools.list()
+
+# After (recommended):
+pools = client.pools.list_by_network('ethereum')
+pools = client.pools.list_by_network('solana')
+pools = client.pools.list_by_network('fantom')
+
+# Token pools with reordering (new feature):
+pools = client.tokens.get_pools(
+    network_id="ethereum",
+    token_address="0x...",
+    reorder=True  # Makes the specified token primary for all metrics
+)
+```
+
 ## [0.2.0] - 2024-07-01
 
 ### Added
