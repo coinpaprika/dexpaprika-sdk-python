@@ -1,4 +1,5 @@
 from typing import List, Optional, Dict, Any, Set
+import warnings
 
 from .base import BaseAPI
 from ..models.pools import (
@@ -22,7 +23,12 @@ class PoolsAPI(BaseAPI):
         order_by: str = "volume_usd"
     ) -> PoolsResponse:
         """
-        Get a list of top pools across all networks.
+        DEPRECATED: Get a list of top pools across all networks.
+        
+        This method is deprecated due to API changes. The global /pools endpoint 
+        has been removed. Use list_by_network(network_id, ...) instead.
+        
+        For backward compatibility, this method now defaults to Ethereum network.
         
         Args:
             page: Page number for pagination
@@ -35,21 +41,53 @@ class PoolsAPI(BaseAPI):
             
         Raises:
             ValueError: If any parameter is invalid
+            
+        Migration Examples:
+            # Before (deprecated):
+            pools = client.pools.list()
+            
+            # After (recommended):
+            pools = client.pools.list_by_network('ethereum')
+            pools = client.pools.list_by_network('solana')
         """
+        # Issue deprecation warning
+        warnings.warn(
+            "The pools.list() method is deprecated. The global /pools endpoint has been "
+            "removed in API v1.3.0. Use pools.list_by_network(network_id) instead. "
+            "This method now defaults to Ethereum network for backward compatibility. "
+            "Examples: client.pools.list_by_network('ethereum'), "
+            "client.pools.list_by_network('solana')",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         # Validate parameters
         self._validate_range("page", page, min_val=0)
         self._validate_range("limit", limit, min_val=1, max_val=100)
         self._validate_enum("sort", sort, self.VALID_SORT_VALUES)
         self._validate_enum("order_by", order_by, self.VALID_ORDER_BY_VALUES)
         
-        # Get top pools
-        params = {"page": page, "limit": limit, "sort": sort, "order_by": order_by}
-        data = self._get("/pools", params=params)
-        
-        # ensure pools exists
-        if 'pools' not in data: data['pools'] = []
+        try:
+            # Attempt to call the deprecated endpoint first for debugging/testing
+            params = {"page": page, "limit": limit, "sort": sort, "order_by": order_by}
+            data = self._get("/pools", params=params)
             
-        return PoolsResponse(**data)
+            # ensure pools exists
+            if 'pools' not in data: data['pools'] = []
+                
+            return PoolsResponse(**data)
+            
+        except Exception as e:
+            # If we get a 410 Gone or any other error, fall back to Ethereum
+            # Check if it's a 410 Gone status specifically
+            if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 410:
+                # Provide a more specific error message for 410 Gone
+                print("WARNING: The global /pools endpoint has been permanently removed (410 Gone). "
+                      "Falling back to Ethereum network. Please update your code to use "
+                      "pools.list_by_network(network_id) instead.")
+            
+            # Fall back to Ethereum network for backward compatibility
+            return self.list_by_network("ethereum", page=page, limit=limit, sort=sort, order_by=order_by)
     
     def list_by_network(
         self, 

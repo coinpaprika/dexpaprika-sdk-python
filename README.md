@@ -25,10 +25,53 @@ A Python client for the DexPaprika API. This SDK provides easy access to real-ti
 pip install dexpaprika-sdk
 
 # Or install from source
-git clone https://github.com/donbagger/dexpaprika-sdk-python.git
+git clone https://github.com/coinpaprika/dexpaprika-sdk-python.git
 cd dexpaprika-sdk-python
 pip install -e .
 ```
+
+## Migration Guide (v0.3.0)
+
+**Important:** Version 0.3.0 includes breaking changes due to DexPaprika API v1.3.0 updates.
+
+### Global Pools Endpoint Deprecation
+
+The global `/pools` endpoint has been removed. If you were using `client.pools.list()`, you need to update your code:
+
+**Before (deprecated):**
+```python
+# This method is deprecated and will show warnings
+pools = client.pools.list(limit=10)
+```
+
+**After (recommended):**
+```python
+# Use network-specific methods instead
+eth_pools = client.pools.list_by_network("ethereum", limit=10)
+solana_pools = client.pools.list_by_network("solana", limit=10)
+```
+
+### New Token Pools Features
+
+The `tokens.get_pools()` method now supports a new `reorder` parameter:
+
+```python
+# Reorder pools so the specified token becomes primary for all metrics
+pools = client.tokens.get_pools(
+    network_id="ethereum",
+    token_address="0xa0b86a33e6441b8466395bf92e8aa0cb53ad20aa",  # USDC
+    reorder=True  # Makes USDC the primary token for calculations
+)
+```
+
+### Backward Compatibility
+
+For backward compatibility, the deprecated `pools.list()` method will:
+- Show deprecation warnings
+- Automatically fall back to Ethereum network
+- Continue working until a future version
+
+We strongly recommend updating your code to use network-specific methods for better performance and future compatibility.
 
 ## Usage
 
@@ -49,8 +92,13 @@ for network in networks:
 stats = client.utils.get_stats()
 print(f"DexPaprika stats: {stats.chains} chains, {stats.pools} pools")
 
-# Get top pools by volume
-pools = client.pools.list(limit=5, order_by="volume_usd", sort="desc")
+# Get top pools by volume (network-specific)
+pools = client.pools.list_by_network(
+    network_id="ethereum",
+    limit=5, 
+    order_by="volume_usd", 
+    sort="desc"
+)
 for pool in pools.pools:
     token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown Pair"
     print(f"- {token_pair} on {pool.dex_name} ({pool.chain}): ${pool.volume_usd:.2f} volume")

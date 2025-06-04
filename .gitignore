@@ -55,15 +55,41 @@ ENV/
 env.bak/
 venv.bak/
 
-# OpenAPI files
-openapi_new.yml
-openapi_old.yml
-
-# SDK update instructions
-SDK_UPDATE_INSTRUCTIONS.md
-
 # IDE specific files
 .idea/
 .vscode/
 *.swp
-*.swo 
+*.swo
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Logs
+*.log
+
+# API keys and secrets (just in case)
+.env.local
+.env.production
+config/secrets.json
+secrets.json
+
+# OpenAPI files
+openapi_old.yml
+openapi_new.yml
+
+#internal files
+SDK_UPDATE_INSTRUCTIONS.md
+
+# Note: OpenAPI files and SDK instructions are kept in the repository
+# for documentation and development reference purposes 

@@ -49,16 +49,25 @@ def test_utils_get_stats(client):
     assert hasattr(stats, 'tokens')
 
 # Pools API tests
-def test_pools_list(client):
-    pools_response = client.pools.list(limit=5)
-    assert pools_response is not None
-    assert hasattr(pools_response, 'pools')
-    assert len(pools_response.pools) > 0
+def test_pools_list_deprecated(client):
+    """Test the deprecated global pools method with deprecation warning."""
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        pools_response = client.pools.list(limit=5)
+        assert pools_response is not None
+        assert hasattr(pools_response, 'pools')
+        assert len(pools_response.pools) > 0
+        # Check that a deprecation warning was issued
+        assert len(w) > 0
+        assert any("deprecated" in str(warning.message).lower() for warning in w)
 
-def test_pools_list_by_network(client, test_data):
+def test_pools_list_by_network_primary(client, test_data):
+    """Test the primary pools list method using network-specific endpoint."""
     pools_response = client.pools.list_by_network(test_data["ethereum_network"], limit=5)
     assert pools_response is not None
     assert hasattr(pools_response, 'pools')
+    assert len(pools_response.pools) > 0
 
 def test_dexes_list(client, test_data):
     dexes_response = client.dexes.list(test_data["ethereum_network"])
@@ -121,6 +130,17 @@ def test_tokens_get_pools(client, test_data):
     assert token_pools is not None
     assert hasattr(token_pools, 'pools')
 
+def test_tokens_get_pools_with_reorder(client, test_data):
+    """Test the tokens.get_pools method with the new reorder parameter."""
+    token_pools = client.tokens.get_pools(
+        test_data["test_pool_network"], 
+        test_data["test_token_address"], 
+        limit=5,
+        reorder=True
+    )
+    assert token_pools is not None
+    assert hasattr(token_pools, 'pools')
+
 # Search API tests
 def test_search_search(client):
     search_results = client.search.search("Jockey")
@@ -149,8 +169,8 @@ if __name__ == "__main__":
         test_networks_list,
         test_networks_list_dexes,
         test_utils_get_stats,
-        test_pools_list,
-        test_pools_list_by_network,
+        test_pools_list_deprecated,
+        test_pools_list_by_network_primary,
         test_dexes_list,
         test_pools_list_by_dex,
         test_pools_get_details,
@@ -158,6 +178,7 @@ if __name__ == "__main__":
         test_pools_get_transactions,
         test_tokens_get_details,
         test_tokens_get_pools,
+        test_tokens_get_pools_with_reorder,
         test_search_search
     ]
     
@@ -167,7 +188,7 @@ if __name__ == "__main__":
     for test_func in test_functions:
         print(f"Testing {test_func.__name__}...")
         try:
-            if test_func.__name__ == "test_networks_list" or test_func.__name__ == "test_utils_get_stats" or test_func.__name__ == "test_pools_list" or test_func.__name__ == "test_search_search":
+            if test_func.__name__ in ["test_networks_list", "test_utils_get_stats", "test_pools_list_deprecated", "test_search_search"]:
                 test_func(client)
             else:
                 test_func(client, test_data)

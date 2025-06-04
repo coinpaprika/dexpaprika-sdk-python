@@ -34,12 +34,12 @@ class TestParameterValidation(unittest.TestCase):
         """Test validation of enum parameters."""
         # Test invalid sort order
         with self.assertRaises(ValueError) as context:
-            self.client.pools.list(sort="invalid")
+            self.client.pools.list_by_network("ethereum", sort="invalid")
         self.assertIn("sort must be one of: asc, desc", str(context.exception))
         
         # Test invalid order_by
         with self.assertRaises(ValueError) as context:
-            self.client.pools.list(order_by="invalid")
+            self.client.pools.list_by_network("ethereum", order_by="invalid")
         self.assertIn("order_by must be one of:", str(context.exception))
         
         # Test invalid interval
@@ -56,17 +56,17 @@ class TestParameterValidation(unittest.TestCase):
         """Test validation of numeric range parameters."""
         # Test negative page
         with self.assertRaises(ValueError) as context:
-            self.client.pools.list(page=-1)
+            self.client.pools.list_by_network("ethereum", page=-1)
         self.assertIn("page must be at least 0", str(context.exception))
         
         # Test invalid limit (too low)
         with self.assertRaises(ValueError) as context:
-            self.client.pools.list(limit=0)
+            self.client.pools.list_by_network("ethereum", limit=0)
         self.assertIn("limit must be at least 1", str(context.exception))
         
         # Test invalid limit (too high)
         with self.assertRaises(ValueError) as context:
-            self.client.pools.list(limit=101)
+            self.client.pools.list_by_network("ethereum", limit=101)
         self.assertIn("limit must be at most 100", str(context.exception))
 
 if __name__ == "__main__":

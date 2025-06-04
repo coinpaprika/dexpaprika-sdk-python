@@ -45,6 +45,7 @@ class TokensAPI(BaseAPI):
         sort: str = "desc", 
         order_by: str = "volume_usd",
         address: Optional[str] = None,
+        reorder: Optional[bool] = None,
     ) -> PoolsResponse:
         """
         Get a list of top liquidity pools for a specific token on a network.
@@ -58,6 +59,9 @@ class TokensAPI(BaseAPI):
             order_by: Field to order by ("volume_usd", "price_usd", "transactions", 
                      "last_price_change_usd_24h", "created_at")
             address: Filter pools that contain this additional token address
+            reorder: If true, reorders the pool so that the specified token becomes 
+                    the primary token for all metrics and calculations. Useful when 
+                    the provided token is not the first token in the pool.
             
         Returns:
             Response containing a list of pools for the given token
@@ -79,6 +83,7 @@ class TokensAPI(BaseAPI):
             "sort": sort,
             "order_by": order_by,
             "address": address,
+            "reorder": reorder,
         }
         params = self._clean_params(params)
         
