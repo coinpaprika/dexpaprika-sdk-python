@@ -91,5 +91,4 @@ openapi_new.yml
 #internal files
 SDK_UPDATE_INSTRUCTIONS.md
 
-# Note: OpenAPI files and SDK instructions are kept in the repository
-# for documentation and development reference purposes 
+# Note: Internal development files are excluded from the repository 

@@ -141,6 +141,128 @@ def test_tokens_get_pools_with_reorder(client, test_data):
     assert token_pools is not None
     assert hasattr(token_pools, 'pools')
 
+# Pool Filter API tests
+def test_pools_filter(client, test_data):
+    """Test pool filtering with volume constraint."""
+    filtered = client.pools.filter(
+        test_data["ethereum_network"],
+        volume_24h_min=100000,
+        limit=5
+    )
+    assert filtered is not None
+    assert hasattr(filtered, 'results')
+    assert hasattr(filtered, 'page_info')
+    assert len(filtered.results) > 0
+    # Verify each pool has the expected fields
+    pool = filtered.results[0]
+    assert hasattr(pool, 'id')
+    assert hasattr(pool, 'volume_usd')
+    assert hasattr(pool, 'tokens')
+
+def test_pools_filter_multiple_params(client, test_data):
+    """Test pool filtering with multiple constraints."""
+    filtered = client.pools.filter(
+        test_data["ethereum_network"],
+        volume_24h_min=50000,
+        txns_24h_min=10,
+        sort_by="volume_24h",
+        sort_dir="desc",
+        limit=3
+    )
+    assert filtered is not None
+    assert hasattr(filtered, 'results')
+
+# Top Tokens API tests
+def test_tokens_get_top(client, test_data):
+    """Test getting top tokens on a network."""
+    top_tokens = client.tokens.get_top(test_data["ethereum_network"], limit=5)
+    assert top_tokens is not None
+    assert hasattr(top_tokens, 'tokens')
+    assert hasattr(top_tokens, 'page_info')
+    assert len(top_tokens.tokens) > 0
+    # Verify token structure
+    token = top_tokens.tokens[0]
+    assert hasattr(token, 'address')
+    assert hasattr(token, 'name')
+    assert hasattr(token, 'symbol')
+    assert hasattr(token, 'price_usd')
+
+def test_tokens_get_top_with_sort(client, test_data):
+    """Test getting top tokens with custom sorting."""
+    top_tokens = client.tokens.get_top(
+        test_data["ethereum_network"],
+        order_by="volume_24h",
+        sort="asc",
+        limit=3
+    )
+    assert top_tokens is not None
+    assert hasattr(top_tokens, 'tokens')
+
+# Token Filter API tests
+def test_tokens_filter(client, test_data):
+    """Test token filtering with volume constraint."""
+    filtered = client.tokens.filter(
+        test_data["ethereum_network"],
+        volume_24h_min=100000,
+        limit=5
+    )
+    assert filtered is not None
+    assert hasattr(filtered, 'results')
+    assert hasattr(filtered, 'page_info')
+    assert len(filtered.results) > 0
+    # Verify token structure
+    token = filtered.results[0]
+    assert hasattr(token, 'address')
+    assert hasattr(token, 'chain')
+    assert hasattr(token, 'price_usd')
+
+def test_tokens_filter_multiple_params(client, test_data):
+    """Test token filtering with multiple constraints."""
+    filtered = client.tokens.filter(
+        test_data["ethereum_network"],
+        volume_24h_min=100000,
+        fdv_min=1000000,
+        sort_by="volume_24h",
+        sort_dir="desc",
+        limit=3
+    )
+    assert filtered is not None
+    assert hasattr(filtered, 'results')
+
+# Multi Prices API tests
+def test_tokens_get_multi_prices(client, test_data):
+    """Test getting batch prices for multiple tokens."""
+    prices = client.tokens.get_multi_prices(
+        test_data["ethereum_network"],
+        tokens=[
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",  # WETH
+            test_data["test_token_address"],  # USDC
+        ]
+    )
+    assert prices is not None
+    assert isinstance(prices, list)
+    assert len(prices) == 2
+    # Verify price structure
+    price = prices[0]
+    assert hasattr(price, 'id')
+    assert hasattr(price, 'chain')
+    assert hasattr(price, 'price_usd')
+
+def test_tokens_get_multi_prices_single(client, test_data):
+    """Test batch prices with a single token."""
+    prices = client.tokens.get_multi_prices(
+        test_data["ethereum_network"],
+        tokens=[test_data["test_token_address"]]
+    )
+    assert prices is not None
+    assert isinstance(prices, list)
+    assert len(prices) == 1
+
+def test_tokens_get_multi_prices_validation(client, test_data):
+    """Test that empty tokens list raises ValueError."""
+    with pytest.raises(ValueError):
+        client.tokens.get_multi_prices(test_data["ethereum_network"], tokens=[])
+
 # Search API tests
 def test_search_search(client):
     search_results = client.search.search("Jockey")
@@ -176,10 +298,18 @@ if __name__ == "__main__":
         test_pools_get_details,
         test_pools_get_ohlcv,
         test_pools_get_transactions,
+        test_pools_filter,
+        test_pools_filter_multiple_params,
         test_tokens_get_details,
         test_tokens_get_pools,
         test_tokens_get_pools_with_reorder,
-        test_search_search
+        test_tokens_get_top,
+        test_tokens_get_top_with_sort,
+        test_tokens_filter,
+        test_tokens_filter_multiple_params,
+        test_tokens_get_multi_prices,
+        test_tokens_get_multi_prices_single,
+        test_search_search,
     ]
     
     success_count = 0

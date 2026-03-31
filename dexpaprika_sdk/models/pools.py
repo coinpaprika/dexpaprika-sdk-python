@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any, Union
 
 from .base import PaginatedResponse
@@ -6,7 +6,7 @@ from .base import PaginatedResponse
 
 class Token(BaseModel):
     # token info
-    
+
     id: str = Field(...)
     name: str = Field(...)
     symbol: str = Field(...)
@@ -18,11 +18,14 @@ class Token(BaseModel):
     description: Optional[str] = Field(None)
     website: Optional[str] = Field(None)
     explorer: Optional[str] = Field(None)
+    type: Optional[str] = Field(None)
+    status: Optional[str] = Field(None)
+    has_image: Optional[bool] = Field(None)
 
 
 class Pool(BaseModel):
     # pool info
-    
+
     id: str = Field(...)
     dex_id: str = Field(...)
     dex_name: str = Field(...)
@@ -37,6 +40,8 @@ class Pool(BaseModel):
     last_price_change_usd_24h: Optional[float] = Field(None)
     fee: Optional[float] = Field(None)
     tokens: List[Token] = Field(...)
+    volume_usd_7d: Optional[float] = Field(None)
+    liquidity_usd: Optional[float] = Field(None)
 
 
 class PoolsResponse(PaginatedResponse[Pool]):
@@ -80,8 +85,7 @@ class PoolDetails(BaseModel):
     minute15: Optional[TimeIntervalMetrics] = Field(None, alias="15m")
     minute5: Optional[TimeIntervalMetrics] = Field(None, alias="5m")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class OHLCVRecord(BaseModel):
@@ -114,4 +118,9 @@ class Transaction(BaseModel):
 
 class TransactionsResponse(PaginatedResponse[Transaction]):
     # txs list response
-    transactions: List[Transaction] = Field(...) 
+    transactions: List[Transaction] = Field(...)
+
+
+class PoolFilterResponse(PaginatedResponse[Pool]):
+    # pool filter response (uses 'results' key)
+    results: List[Pool] = Field(...)
