@@ -9,9 +9,12 @@ A Python client for the DexPaprika API. This SDK provides easy access to real-ti
 
 ## Features
 
-- Access data from 20+ blockchain networks
+- Access data from 33+ blockchain networks
 - Query information about DEXes, liquidity pools, and tokens
 - Get detailed price information, trading volume, and transactions
+- **Filter pools and tokens** by volume, liquidity, FDV, transactions, and creation date
+- **Get top tokens** on any network ranked by volume or other metrics
+- **Batch price lookups** for up to 10 tokens in a single request
 - Search across the entire DexPaprika ecosystem
 - Automatic parameter validation with clear error messages
 - Type-safe response objects using Pydantic models
@@ -159,6 +162,61 @@ ohlcv_data = client.pools.get_ohlcv(
 )
 ```
 
+#### Filter pools by metrics
+
+```python
+# Find high-volume Ethereum pools
+filtered = client.pools.filter(
+    network_id="ethereum",
+    volume_24h_min=100000,
+    txns_24h_min=50,
+    sort_by="volume_24h",
+    sort_dir="desc",
+    limit=10
+)
+for pool in filtered.results:
+    token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown"
+    print(f"- {token_pair}: ${pool.volume_usd:,.0f} volume")
+```
+
+#### Get top tokens on a network
+
+```python
+# Get top tokens by volume on Ethereum
+top = client.tokens.get_top("ethereum", order_by="volume_24h", limit=5)
+for token in top.tokens:
+    print(f"- {token.symbol}: ${token.price_usd:.4f} (24h vol: ${token.day.volume_usd:,.0f})")
+```
+
+#### Filter tokens by criteria
+
+```python
+# Find tokens with high volume and FDV
+filtered = client.tokens.filter(
+    network_id="ethereum",
+    volume_24h_min=100000,
+    fdv_min=1000000,
+    limit=10
+)
+for token in filtered.results:
+    print(f"- {token.address}: ${token.volume_usd_24h:,.0f} vol, ${token.fdv_usd:,.0f} FDV")
+```
+
+#### Get batch prices for multiple tokens
+
+```python
+# Get prices for WETH and USDC in one request
+prices = client.tokens.get_multi_prices(
+    network_id="ethereum",
+    tokens=[
+        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",  # WETH
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
+    ]
+)
+for p in prices:
+    print(f"- {p.id}: ${p.price_usd:.4f}")
+```
+
 #### Get tokens and pools by search query
 
 ```python
@@ -288,8 +346,8 @@ print(f"24h price change: {pool.day.last_price_usd_change:.2f}%")
 The SDK provides the following main components:
 
 - `NetworksAPI`: Access information about supported blockchain networks
-- `PoolsAPI`: Query data about liquidity pools across networks
-- `TokensAPI`: Access token information and related pools
+- `PoolsAPI`: Query data about liquidity pools across networks, filter pools by metrics
+- `TokensAPI`: Access token information, top tokens, filter tokens, batch price lookups
 - `DexesAPI`: Get information about decentralized exchanges
 - `SearchAPI`: Search for tokens, pools, and DEXes
 - `UtilsAPI`: Utility endpoints like global statistics

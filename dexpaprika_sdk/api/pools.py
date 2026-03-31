@@ -1,9 +1,10 @@
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any, Set, Union
 import warnings
 
 from .base import BaseAPI
 from ..models.pools import (
-    PoolsResponse, PoolDetails, OHLCVRecord, TransactionsResponse
+    PoolsResponse, PoolDetails, OHLCVRecord, TransactionsResponse,
+    PoolFilterResponse,
 )
 
 
@@ -286,4 +287,75 @@ class PoolsAPI(BaseAPI):
         params = self._clean_params(params)
         
         data = self._get(f"/networks/{network_id}/pools/{pool_address}/transactions", params=params)
-        return TransactionsResponse(**data) 
+        return TransactionsResponse(**data)
+
+    def filter(
+        self,
+        network_id: str,
+        page: int = 1,
+        limit: int = 10,
+        sort_by: str = "volume_24h",
+        sort_dir: str = "desc",
+        volume_24h_min: Optional[float] = None,
+        volume_24h_max: Optional[float] = None,
+        volume_7d_min: Optional[float] = None,
+        volume_7d_max: Optional[float] = None,
+        liquidity_usd_min: Optional[float] = None,
+        liquidity_usd_max: Optional[float] = None,
+        txns_24h_min: Optional[int] = None,
+        created_after: Optional[Union[int, str]] = None,
+        created_before: Optional[Union[int, str]] = None,
+    ) -> PoolFilterResponse:
+        """
+        Filter pools on a network by volume, liquidity, transactions, and creation date.
+
+        Args:
+            network_id: Network ID (e.g., "ethereum", "solana")
+            page: Page number for pagination (1-indexed)
+            limit: Number of items per page (max 100)
+            sort_by: Field to sort by (e.g., "volume_24h", "liquidity_usd", "txns_24h", "created_at")
+            sort_dir: Sort direction ("asc" or "desc")
+            volume_24h_min: Minimum 24h volume in USD
+            volume_24h_max: Maximum 24h volume in USD
+            volume_7d_min: Minimum 7d volume in USD
+            volume_7d_max: Maximum 7d volume in USD
+            liquidity_usd_min: Minimum liquidity in USD
+            liquidity_usd_max: Maximum liquidity in USD
+            txns_24h_min: Minimum number of transactions in 24h
+            created_after: Only pools created after this time (Unix timestamp)
+            created_before: Only pools created before this time (Unix timestamp)
+
+        Returns:
+            Filtered pools with pagination info
+
+        Raises:
+            ValueError: If any parameter is invalid
+        """
+        self._validate_required("network_id", network_id)
+        self._validate_range("page", page, min_val=1)
+        self._validate_range("limit", limit, min_val=1, max_val=100)
+        self._validate_enum("sort_dir", sort_dir, self.VALID_SORT_VALUES)
+
+        params = {
+            "page": page,
+            "limit": limit,
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
+            "volume_24h_min": volume_24h_min,
+            "volume_24h_max": volume_24h_max,
+            "volume_7d_min": volume_7d_min,
+            "volume_7d_max": volume_7d_max,
+            "liquidity_usd_min": liquidity_usd_min,
+            "liquidity_usd_max": liquidity_usd_max,
+            "txns_24h_min": txns_24h_min,
+            "created_after": created_after,
+            "created_before": created_before,
+        }
+        params = self._clean_params(params)
+
+        data = self._get(f"/networks/{network_id}/pools/filter", params=params)
+
+        if 'results' not in data:
+            data['results'] = []
+
+        return PoolFilterResponse(**data)

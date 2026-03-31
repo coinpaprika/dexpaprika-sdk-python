@@ -19,7 +19,7 @@ class DexPaprikaClient:
         self,
         base_url: str = "https://api.dexpaprika.com",
         session: Optional[requests.Session] = None,
-        user_agent: str = "DexPaprika-SDK-Python/0.3.0",
+        user_agent: str = "DexPaprika-SDK-Python/0.4.0",
         max_retries: int = 4,
         backoff_times: List[float] = None,
     ):

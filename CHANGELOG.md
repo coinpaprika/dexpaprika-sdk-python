@@ -5,6 +5,24 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-31
+
+### Added
+- **Pool filtering**: `pools.filter()` method for advanced pool filtering by volume, liquidity, transactions, and creation date on any network
+- **Top tokens**: `tokens.get_top()` method for discovering top tokens on a network ranked by volume, price, liquidity, or other metrics
+- **Token filtering**: `tokens.filter()` method for filtering tokens by volume, liquidity, FDV, transactions, and creation date
+- **Batch prices**: `tokens.get_multi_prices()` method for getting prices of up to 10 tokens in a single request
+- New Pydantic models: `PoolFilterResponse`, `TopToken`, `TopTokenTimeMetrics`, `TopTokensResponse`, `FilteredToken`, `TokenFilterResponse`, `TokenPrice`
+- Optional `volume_usd_7d`, `liquidity_usd` fields on `Pool` model
+- Optional `type`, `status`, `has_image` fields on `Token` model
+- Tests for all new endpoints
+
+### Changed
+- Updated SDK version to 0.4.0
+- Updated user agent string
+- Migrated Pydantic models from deprecated `class Config` to `ConfigDict`
+- Updated README with new endpoint examples and documentation
+
 ## [0.3.0] - 2025-01-27
 
 ### Breaking Changes

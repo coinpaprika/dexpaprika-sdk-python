@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any
 
 from .base import PaginatedResponse
@@ -22,8 +22,7 @@ class TokenSummary(BaseModel):
     minute5: Optional[TimeIntervalMetrics] = Field(None, alias="5m", description="Metrics for the last 5 minutes")
     minute1: Optional[TimeIntervalMetrics] = Field(None, alias="1m", description="Metrics for the last minute")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class TokenDetails(BaseModel):
@@ -45,7 +44,7 @@ class TokenDetails(BaseModel):
 
 class TokenDetailsLight(BaseModel):
     """Lightweight token details used in search results."""
-    
+
     id: str = Field(..., description="Token identifier or address")
     name: str = Field(..., description="Human-readable name of the token")
     symbol: str = Field(..., description="Token symbol")
@@ -61,4 +60,68 @@ class TokenDetailsLight(BaseModel):
     volume_usd: Optional[float] = Field(None, description="Trading volume in USD")
     price_usd_change: Optional[float] = Field(None, description="Price change in USD")
     type: Optional[str] = Field(None, description="Token type")
-    status: Optional[str] = Field(None, description="Token status") 
+    status: Optional[str] = Field(None, description="Token status")
+
+
+class TopTokenTimeMetrics(BaseModel):
+    """Time interval metrics for top tokens (lighter than full TimeIntervalMetrics)."""
+
+    volume_usd: float = Field(...)
+    txns: int = Field(...)
+    last_price_usd_change: Optional[float] = Field(None)
+    buys: Optional[int] = Field(None)
+    sells: Optional[int] = Field(None)
+
+
+class TopToken(BaseModel):
+    """Token data from the top tokens endpoint."""
+
+    address: str = Field(...)
+    name: str = Field(...)
+    symbol: str = Field(...)
+    chain: str = Field(...)
+    decimals: int = Field(...)
+    has_image: Optional[bool] = Field(None)
+    price_usd: Optional[float] = Field(None)
+    fdv: Optional[float] = Field(None)
+    liquidity_usd: Optional[float] = Field(None)
+    pools: Optional[int] = Field(None)
+
+    # Time interval metrics
+    day: Optional[TopTokenTimeMetrics] = Field(None, alias="24h")
+    hour1: Optional[TopTokenTimeMetrics] = Field(None, alias="1h")
+    minute5: Optional[TopTokenTimeMetrics] = Field(None, alias="5m")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class TopTokensResponse(PaginatedResponse):
+    """Response from the top tokens endpoint."""
+    tokens: List[TopToken] = Field(...)
+
+
+class FilteredToken(BaseModel):
+    """Token data from the token filter endpoint."""
+
+    chain: str = Field(...)
+    address: str = Field(...)
+    price_usd: Optional[float] = Field(None)
+    volume_usd_24h: Optional[float] = Field(None)
+    volume_usd_7d: Optional[float] = Field(None)
+    liquidity_usd: Optional[float] = Field(None)
+    fdv_usd: Optional[float] = Field(None)
+    txns_24h: Optional[int] = Field(None)
+    created_at: Optional[str] = Field(None)
+
+
+class TokenFilterResponse(PaginatedResponse):
+    """Response from the token filter endpoint."""
+    results: List[FilteredToken] = Field(...)
+
+
+class TokenPrice(BaseModel):
+    """Token price from the multi-prices endpoint."""
+
+    chain: str = Field(...)
+    id: str = Field(...)
+    price_usd: Optional[float] = Field(None) 
