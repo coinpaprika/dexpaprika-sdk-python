@@ -253,26 +253,30 @@ class PoolsAPI(BaseAPI):
         return [OHLCVRecord(**item) for item in data]
     
     def get_transactions(
-        self, 
-        network_id: str, 
-        pool_address: str, 
-        page: int = 0, 
-        limit: int = 10, 
-        cursor: Optional[str] = None
+        self,
+        network_id: str,
+        pool_address: str,
+        page: int = 0,
+        limit: int = 10,
+        cursor: Optional[str] = None,
+        from_timestamp: Optional[int] = None,
+        to_timestamp: Optional[int] = None
     ) -> TransactionsResponse:
         """
         Get transactions of a pool on a network.
-        
+
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
             pool_address: Pool address or identifier
             page: Page number for pagination
             limit: Number of items per page
             cursor: Transaction ID used for cursor-based pagination
-            
+            from_timestamp: Filter transactions starting from this UNIX timestamp (inclusive). Results capped to last 7 days.
+            to_timestamp: Filter transactions up to this UNIX timestamp (exclusive). Must be after from_timestamp.
+
         Returns:
             Response containing a list of transactions
-            
+
         Raises:
             ValueError: If any parameter is invalid
         """
@@ -281,11 +285,11 @@ class PoolsAPI(BaseAPI):
         self._validate_required("pool_address", pool_address)
         self._validate_range("page", page, min_val=0)
         self._validate_range("limit", limit, min_val=1, max_val=100)
-        
+
         # Get txs
-        params = {"page": page, "limit": limit, "cursor": cursor}
+        params = {"page": page, "limit": limit, "cursor": cursor, "from": from_timestamp, "to": to_timestamp}
         params = self._clean_params(params)
-        
+
         data = self._get(f"/networks/{network_id}/pools/{pool_address}/transactions", params=params)
         return TransactionsResponse(**data)
 
