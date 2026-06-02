@@ -3,7 +3,7 @@ from .networks import Network, Dex, DexesResponse
 from .pools import (
     Token, Pool, PoolsResponse, TimeIntervalMetrics,
     PoolDetails, OHLCVRecord, Transaction, TransactionsResponse,
-    PoolFilterResponse,
+    FilteredPool, PoolFilterResponse,
 )
 from .tokens import (
     TokenSummary, TokenDetails, TopTokenTimeMetrics, TopToken,
@@ -22,7 +22,7 @@ __all__ = [
     # Pools
     "Token", "Pool", "PoolsResponse", "TimeIntervalMetrics",
     "PoolDetails", "OHLCVRecord", "Transaction", "TransactionsResponse",
-    "PoolFilterResponse",
+    "FilteredPool", "PoolFilterResponse",
 
     # Tokens
     "TokenSummary", "TokenDetails",
