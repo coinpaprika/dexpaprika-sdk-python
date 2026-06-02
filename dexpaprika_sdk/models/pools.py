@@ -121,6 +121,34 @@ class TransactionsResponse(PaginatedResponse[Transaction]):
     transactions: List[Transaction] = Field(...)
 
 
-class PoolFilterResponse(PaginatedResponse[Pool]):
+class FilteredPool(BaseModel):
+    """Pool data from the pool filter endpoint (/networks/{id}/pools/filter).
+
+    The filter endpoint returns a different shape than the pools list: volume is
+    broken out by timeframe (volume_usd_24h / _7d / _30d) and liquidity_usd is
+    included, instead of the single flat ``volume_usd`` the list endpoint returns.
+    Metric fields are optional so a future shape tweak can't break deserialization.
+    """
+
+    id: str = Field(...)
+    dex_id: str = Field(...)
+    dex_name: str = Field(...)
+    chain: str = Field(...)
+    tokens: List[Token] = Field(...)
+    created_at: Optional[str] = Field(None)
+    created_at_block_number: Optional[int] = Field(None)
+    transactions: Optional[int] = Field(None)
+    price_usd: Optional[float] = Field(None)
+    volume_usd_24h: Optional[float] = Field(None)
+    volume_usd_7d: Optional[float] = Field(None)
+    volume_usd_30d: Optional[float] = Field(None)
+    liquidity_usd: Optional[float] = Field(None)
+    last_price_change_usd_5m: Optional[float] = Field(None)
+    last_price_change_usd_1h: Optional[float] = Field(None)
+    last_price_change_usd_24h: Optional[float] = Field(None)
+    fee: Optional[float] = Field(None)
+
+
+class PoolFilterResponse(PaginatedResponse[FilteredPool]):
     # pool filter response (uses 'results' key)
-    results: List[Pool] = Field(...)
+    results: List[FilteredPool] = Field(...)

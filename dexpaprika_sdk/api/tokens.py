@@ -205,8 +205,11 @@ class TokensAPI(BaseAPI):
 
         data = self._get(f"/networks/{network_id}/tokens/filter", params=params)
 
+        # The token filter endpoint returns rows under a "data" key, not "results".
+        # Map it across (falling back to an empty list) so callers get a consistent
+        # ``results`` field regardless of the wire key.
         if 'results' not in data:
-            data['results'] = []
+            data['results'] = data.get('data', [])
 
         return TokenFilterResponse(**data)
 

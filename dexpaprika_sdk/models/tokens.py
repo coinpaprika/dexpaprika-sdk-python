@@ -112,6 +112,7 @@ class FilteredToken(BaseModel):
     price_usd: Optional[float] = Field(None)
     volume_usd_24h: Optional[float] = Field(None)
     volume_usd_7d: Optional[float] = Field(None)
+    volume_usd_30d: Optional[float] = Field(None)
     liquidity_usd: Optional[float] = Field(None)
     fdv_usd: Optional[float] = Field(None)
     txns_24h: Optional[int] = Field(None)
