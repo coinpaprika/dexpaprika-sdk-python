@@ -156,7 +156,8 @@ def test_pools_filter(client, test_data):
     # Verify each pool has the expected fields
     pool = filtered.results[0]
     assert hasattr(pool, 'id')
-    assert hasattr(pool, 'volume_usd')
+    # The filter endpoint returns timeframe-split volume, not a flat volume_usd
+    assert hasattr(pool, 'volume_usd_24h')
     assert hasattr(pool, 'tokens')
 
 def test_pools_filter_multiple_params(client, test_data):
