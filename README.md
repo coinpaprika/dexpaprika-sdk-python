@@ -13,6 +13,7 @@ A Python client for the DexPaprika API. This SDK provides easy access to real-ti
 - Query information about DEXes, liquidity pools, and tokens
 - Get detailed price information, trading volume, and transactions
 - **Filter pools and tokens** by volume, liquidity, FDV, transactions, and creation date
+- **Advanced pool search** across all networks or one, with cursor pagination and detailed token metrics
 - **Get top tokens** on any network ranked by volume or other metrics
 - **Batch price lookups** for up to 10 tokens in a single request
 - Search across the entire DexPaprika ecosystem
@@ -177,6 +178,34 @@ filtered = client.pools.filter(
 for pool in filtered.results:
     token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown"
     print(f"- {token_pair}: ${pool.volume_usd:,.0f} volume")
+```
+
+#### Advanced pool search (cursor pagination + detailed tokens)
+
+`advanced_search` (alias: `search`) wraps the `/frontend/v1` pool search. Pass
+`network` for a per-network search or omit it to search every chain at once. It
+sorts on the canonical `sort_by` / `sort_dir` names (translated to the wire
+`order_by` / `sort` for you) and uses cursor pagination rather than page numbers.
+
+```python
+# First page of high-priced Uniswap v3 pools on Ethereum, with full token data
+resp = client.pools.advanced_search(
+    network="ethereum",
+    dex_name="uniswap_v3",
+    price_usd_min=0.5,
+    sort_by="volume_usd_24h",   # sent on the wire as order_by
+    sort_dir="desc",            # sent on the wire as sort
+    detailed=True,              # tokens carry fdv + per-timeframe metrics
+    limit=10,
+)
+for pool in resp.results:
+    print(f"- {pool.id}: ${pool.volume_usd_24h:,.0f} 24h volume")
+
+# Cursor pagination: feed next_cursor back in to get the next page
+if resp.has_next_page:
+    next_page = client.pools.advanced_search(
+        network="ethereum", cursor=resp.next_cursor, limit=10
+    )
 ```
 
 #### Get top tokens on a network

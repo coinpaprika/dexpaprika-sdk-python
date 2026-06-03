@@ -4,6 +4,7 @@ from .pools import (
     Token, Pool, PoolsResponse, TimeIntervalMetrics,
     PoolDetails, OHLCVRecord, Transaction, TransactionsResponse,
     FilteredPool, PoolFilterResponse,
+    TokenTimeframeMetrics, SearchToken, PoolRow, PoolSearchResponse,
 )
 from .tokens import (
     TokenSummary, TokenDetails, TopTokenTimeMetrics, TopToken,
@@ -23,6 +24,7 @@ __all__ = [
     "Token", "Pool", "PoolsResponse", "TimeIntervalMetrics",
     "PoolDetails", "OHLCVRecord", "Transaction", "TransactionsResponse",
     "FilteredPool", "PoolFilterResponse",
+    "TokenTimeframeMetrics", "SearchToken", "PoolRow", "PoolSearchResponse",
 
     # Tokens
     "TokenSummary", "TokenDetails",

@@ -5,6 +5,13 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Advanced pool search**: `pools.advanced_search()` (alias `pools.search()`) wrapping the `/frontend/v1/pools` and `/frontend/v1/networks/{network}/pools` endpoints. Searches across all networks or one, with cursor pagination, canonical `sort_by`/`sort_dir` sorting (translated to the wire `order_by`/`sort`), price/volume/liquidity/dex filters, and an optional `detailed` mode that returns full token metadata plus per-timeframe metric blocks.
+- New Pydantic models: `PoolSearchResponse`, `PoolRow`, `SearchToken`, `TokenTimeframeMetrics`. Response fields are optional/nullable so a partial row or omitted field can't break deserialization.
+- Live tests covering the global and per-network variants, the sort translation, filtering, cursor pagination, and detailed token metrics
+
 ## [0.4.0] - 2026-03-31
 
 ### Added

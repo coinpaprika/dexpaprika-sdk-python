@@ -4,17 +4,25 @@ import warnings
 from .base import BaseAPI
 from ..models.pools import (
     PoolsResponse, PoolDetails, OHLCVRecord, TransactionsResponse,
-    PoolFilterResponse,
+    PoolFilterResponse, PoolSearchResponse,
 )
 
 
 class PoolsAPI(BaseAPI):
     """API service for pool-related endpoints."""
-    
+
     # Valid values for common parameters
     VALID_SORT_VALUES: Set[str] = {"asc", "desc"}
     VALID_ORDER_BY_VALUES: Set[str] = {"volume_usd", "price_usd", "transactions", "last_price_change_usd_24h", "created_at"}
     VALID_INTERVAL_VALUES: Set[str] = {"1m", "5m", "10m", "15m", "30m", "1h", "6h", "12h", "24h"}
+
+    # Sort fields accepted by the advanced search (/frontend/v1) endpoint. These
+    # differ from VALID_ORDER_BY_VALUES above, which belong to the older
+    # /networks/{id}/pools list.
+    VALID_SEARCH_SORT_BY_VALUES: Set[str] = {
+        "volume_usd_24h", "volume_usd_7d", "volume_usd_30d", "liquidity_usd",
+        "txns_24h", "price_usd", "price_change_percentage_24h", "created_at",
+    }
     
     def list(
         self, 
@@ -363,3 +371,110 @@ class PoolsAPI(BaseAPI):
             data['results'] = []
 
         return PoolFilterResponse(**data)
+
+    def advanced_search(
+        self,
+        network: Optional[str] = None,
+        limit: int = 10,
+        cursor: Optional[str] = None,
+        sort_by: str = "volume_usd_24h",
+        sort_dir: str = "desc",
+        detailed: bool = False,
+        volume_24h_min: Optional[float] = None,
+        volume_24h_max: Optional[float] = None,
+        volume_7d_min: Optional[float] = None,
+        volume_7d_max: Optional[float] = None,
+        liquidity_usd_min: Optional[float] = None,
+        liquidity_usd_max: Optional[float] = None,
+        txns_24h_min: Optional[int] = None,
+        price_usd_min: Optional[float] = None,
+        price_usd_max: Optional[float] = None,
+        price_change_percentage_24h_min: Optional[float] = None,
+        price_change_percentage_24h_max: Optional[float] = None,
+        dex_name: Optional[str] = None,
+        created_after: Optional[Union[int, str]] = None,
+        created_before: Optional[Union[int, str]] = None,
+    ) -> PoolSearchResponse:
+        """
+        Advanced pool search against the /frontend/v1 endpoints.
+
+        Hits ``/frontend/v1/pools`` when ``network`` is omitted, or
+        ``/frontend/v1/networks/{network}/pools`` when it's given. Unlike the
+        page-based ``filter()`` and ``list_by_network()`` methods, this endpoint
+        uses cursor pagination: when ``has_next_page`` is True, pass
+        ``next_cursor`` back in as ``cursor`` to fetch the next page.
+
+        Sorting uses the canonical ``sort_by`` / ``sort_dir`` names. The backend
+        wire format actually expects ``order_by`` (field) and ``sort``
+        (direction), so this method translates them for you. Don't pass the wire
+        names directly.
+
+        Args:
+            network: Network ID (e.g. "ethereum"). Omit to search across all networks.
+            limit: Number of pools to return.
+            cursor: Cursor from a previous response's ``next_cursor`` for the next page.
+            sort_by: Field to sort by. One of: volume_usd_24h, volume_usd_7d,
+                volume_usd_30d, liquidity_usd, txns_24h, price_usd,
+                price_change_percentage_24h, created_at. Sent on the wire as ``order_by``.
+            sort_dir: Sort direction, "asc" or "desc". Sent on the wire as ``sort``.
+            detailed: When True, each token carries full metadata (name, symbol,
+                fdv, ...) plus per-timeframe metric blocks.
+            volume_24h_min/max: Filter by 24h volume in USD.
+            volume_7d_min/max: Filter by 7d volume in USD.
+            liquidity_usd_min/max: Filter by liquidity in USD.
+            txns_24h_min: Minimum number of transactions in 24h.
+            price_usd_min/max: Filter by pool price in USD.
+            price_change_percentage_24h_min/max: Filter by 24h price change percentage.
+            dex_name: Restrict to a single DEX (e.g. "uniswap_v3").
+            created_after: Only pools created after this time (Unix timestamp or ISO-8601).
+            created_before: Only pools created before this time (Unix timestamp or ISO-8601).
+
+        Returns:
+            PoolSearchResponse with ``results``, ``has_next_page``,
+            ``next_cursor``, and ``query`` (the wire params the backend applied).
+
+        Raises:
+            ValueError: If any parameter is invalid.
+        """
+        self._validate_range("limit", limit, min_val=1, max_val=100)
+        self._validate_enum("sort_dir", sort_dir, self.VALID_SORT_VALUES)
+        self._validate_enum("sort_by", sort_by, self.VALID_SEARCH_SORT_BY_VALUES)
+
+        # Canonical -> wire: sort_by becomes order_by, sort_dir becomes sort.
+        params = {
+            "limit": limit,
+            "cursor": cursor,
+            "order_by": sort_by,
+            "sort": sort_dir,
+            "detailed": "true" if detailed else None,
+            "volume_24h_min": volume_24h_min,
+            "volume_24h_max": volume_24h_max,
+            "volume_7d_min": volume_7d_min,
+            "volume_7d_max": volume_7d_max,
+            "liquidity_usd_min": liquidity_usd_min,
+            "liquidity_usd_max": liquidity_usd_max,
+            "txns_24h_min": txns_24h_min,
+            "price_usd_min": price_usd_min,
+            "price_usd_max": price_usd_max,
+            "price_change_percentage_24h_min": price_change_percentage_24h_min,
+            "price_change_percentage_24h_max": price_change_percentage_24h_max,
+            "dex_name": dex_name,
+            "created_after": created_after,
+            "created_before": created_before,
+        }
+        params = self._clean_params(params)
+
+        if network:
+            endpoint = f"/frontend/v1/networks/{network}/pools"
+        else:
+            endpoint = "/frontend/v1/pools"
+
+        data = self._get(endpoint, params=params)
+
+        if 'results' not in data:
+            data['results'] = []
+
+        return PoolSearchResponse(**data)
+
+    # Convenient alias matching the canonical surface name.
+    search = advanced_search

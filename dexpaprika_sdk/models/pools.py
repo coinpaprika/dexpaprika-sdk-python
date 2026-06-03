@@ -152,3 +152,113 @@ class FilteredPool(BaseModel):
 class PoolFilterResponse(PaginatedResponse[FilteredPool]):
     # pool filter response (uses 'results' key)
     results: List[FilteredPool] = Field(...)
+
+
+# --- Advanced pool search (/frontend/v1/pools) ---------------------------------
+#
+# These models back pools.advanced_search(). The frontend endpoint returns a
+# richer shape than the public /pools list: cursor pagination, per-timeframe
+# volume, and (with detailed=True) full token metadata plus per-timeframe metric
+# blocks. Every field below is optional/nullable on purpose: in basic mode a
+# token carries only id/chain/has_image, and even in detailed mode the API drops
+# fields like fdv on some tokens. Hard-requiring any of these is exactly the bug
+# that broke the #40 filter models, so we never do it here.
+
+
+class TokenTimeframeMetrics(BaseModel):
+    """Per-timeframe trading metrics for a token (detailed=True only).
+
+    Keyed in the response by timeframe ("1m", "5m", ... "24h"). All fields are
+    optional because the API may omit any of them; last_price_usd_change in
+    particular is frequently null.
+    """
+
+    volume_usd: Optional[float] = Field(None)
+    buys: Optional[int] = Field(None)
+    sells: Optional[int] = Field(None)
+    txns: Optional[int] = Field(None)
+    last_price_usd_change: Optional[float] = Field(None)
+
+
+class SearchToken(BaseModel):
+    """A token inside an advanced-search pool row.
+
+    In basic mode only id/chain/has_image are present. With detailed=True the
+    API adds name, symbol, decimals, supply/fdv, links, and the timeframe metric
+    blocks below. Unknown extra keys are tolerated so a backend addition can't
+    break deserialization.
+    """
+
+    id: Optional[str] = Field(None)
+    chain: Optional[str] = Field(None)
+    has_image: Optional[bool] = Field(None)
+
+    # detailed=True adds these
+    name: Optional[str] = Field(None)
+    symbol: Optional[str] = Field(None)
+    status: Optional[str] = Field(None)
+    decimals: Optional[int] = Field(None)
+    added_at: Optional[str] = Field(None)
+    total_supply: Optional[float] = Field(None)
+    fdv: Optional[float] = Field(None)
+    description: Optional[str] = Field(None)
+    website: Optional[str] = Field(None)
+
+    # per-timeframe metric blocks (detailed=True). Aliased because Python
+    # attributes cannot start with a digit.
+    minute1: Optional[TokenTimeframeMetrics] = Field(None, alias="1m")
+    minute5: Optional[TokenTimeframeMetrics] = Field(None, alias="5m")
+    minute15: Optional[TokenTimeframeMetrics] = Field(None, alias="15m")
+    minute30: Optional[TokenTimeframeMetrics] = Field(None, alias="30m")
+    hour1: Optional[TokenTimeframeMetrics] = Field(None, alias="1h")
+    hour6: Optional[TokenTimeframeMetrics] = Field(None, alias="6h")
+    hour24: Optional[TokenTimeframeMetrics] = Field(None, alias="24h")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+
+class PoolRow(BaseModel):
+    """A single pool row from the advanced-search endpoint.
+
+    Unlike the public list (single flat volume_usd) this row carries volume split
+    by timeframe (24h/7d/30d), liquidity, and 5m/1h/24h price-change percentages.
+    Only id is treated as effectively always present; everything else is optional
+    so a partial row never breaks the whole response.
+    """
+
+    id: str = Field(...)
+    dex_id: Optional[str] = Field(None)
+    dex_name: Optional[str] = Field(None)
+    chain: Optional[str] = Field(None)
+    fee: Optional[float] = Field(None)
+    created_at: Optional[str] = Field(None)
+    created_at_block_number: Optional[int] = Field(None)
+    price_usd: Optional[float] = Field(None)
+    transactions_24h: Optional[int] = Field(None)
+    volume_usd_24h: Optional[float] = Field(None)
+    volume_usd_7d: Optional[float] = Field(None)
+    volume_usd_30d: Optional[float] = Field(None)
+    liquidity_usd: Optional[float] = Field(None)
+    price_change_percentage_5m: Optional[float] = Field(None)
+    price_change_percentage_1h: Optional[float] = Field(None)
+    price_change_percentage_24h: Optional[float] = Field(None)
+    tokens: List[SearchToken] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
+
+
+class PoolSearchResponse(BaseModel):
+    """Response from the advanced pool search endpoint.
+
+    Cursor-paginated: when has_next_page is True, pass next_cursor back as the
+    ``cursor`` argument to fetch the next page (this endpoint is NOT page-based).
+    ``query`` echoes the wire params the backend actually applied (order_by/sort),
+    so it is kept as a permissive dict rather than a typed model.
+    """
+
+    results: List[PoolRow] = Field(default_factory=list)
+    has_next_page: Optional[bool] = Field(None)
+    next_cursor: Optional[str] = Field(None)
+    query: Optional[Dict[str, Any]] = Field(None)
+
+    model_config = ConfigDict(extra="allow")
