@@ -71,11 +71,11 @@ def main():
     # Get pools on this network
     print(f"Getting top pools on {network_id}...")
     try:
-        pools = client.pools.list_by_network(network_id=network_id, limit=5, order_by="volume_usd", sort="desc")
-        print(f"Top 5 pools by volume:")
-        for pool in pools.pools:
+        pools = client.pools.list_by_network(network_id=network_id, limit=5, order_by="volume_usd_24h", sort="desc")
+        print(f"Top 5 pools by 24h volume:")
+        for pool in pools.results:
             token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown Pair"
-            print(f"- {token_pair} on {pool.dex_name}: {format_currency(pool.volume_usd)} volume ({format_currency(pool.price_usd)} price)")
+            print(f"- {token_pair} on {pool.dex_name}: {format_currency(pool.volume_usd_24h or 0)} volume ({format_currency(pool.price_usd or 0)} price)")
         print()
     except Exception as e:
         print(f"Could not get pools: {e}\n")
@@ -103,9 +103,9 @@ def main():
         print()
     
     # Choose a pool for detailed analysis
-    if pools and pools.pools:
-        pool_address = pools.pools[0].id
-        pool_pair = f"{pools.pools[0].tokens[0].symbol}/{pools.pools[0].tokens[1].symbol}" if len(pools.pools[0].tokens) >= 2 else "Unknown Pair"
+    if pools and pools.results:
+        pool_address = pools.results[0].id
+        pool_pair = f"{pools.results[0].tokens[0].symbol}/{pools.results[0].tokens[1].symbol}" if len(pools.results[0].tokens) >= 2 else "Unknown Pair"
         print(f"Getting detailed info for {pool_pair} pool...")
         
         # Get pool details

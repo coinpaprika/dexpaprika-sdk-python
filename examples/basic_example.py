@@ -31,12 +31,12 @@ def main():
 
     print("\n--------\n")
 
-    # Get top pools
-    pools_resp = client.pools.list(limit=5, order_by="volume_usd", sort="desc")
-    print("Top 5 pools by volume:")
-    for pool in pools_resp.pools:
+    # Get top pools on a network (the global pools list was removed; use a network)
+    pools_resp = client.pools.list_by_network("ethereum", limit=5, order_by="volume_usd_24h", sort="desc")
+    print("Top 5 Ethereum pools by 24h volume:")
+    for pool in pools_resp.results:
         token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown Pair"
-        print(f"- {token_pair} on {pool.dex_name} ({pool.chain}): ${pool.volume_usd:.2f} volume")
+        print(f"- {token_pair} on {pool.dex_name} ({pool.chain}): ${pool.volume_usd_24h or 0:,.2f} volume")
 
     print("\n--------\n")
 

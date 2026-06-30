@@ -56,8 +56,12 @@ def test_pools_list_deprecated(client):
         warnings.simplefilter("always")
         pools_response = client.pools.list(limit=5)
         assert pools_response is not None
-        assert hasattr(pools_response, 'pools')
-        assert len(pools_response.pools) > 0
+        # The unified search response exposes rows under `results`
+        assert hasattr(pools_response, 'results')
+        assert hasattr(pools_response, 'has_next_page')
+        assert len(pools_response.results) > 0
+        # `pools` remains as a backward-compatible alias for `results`
+        assert pools_response.pools == pools_response.results
         # Check that a deprecation warning was issued
         assert len(w) > 0
         assert any("deprecated" in str(warning.message).lower() for warning in w)
@@ -66,8 +70,13 @@ def test_pools_list_by_network_primary(client, test_data):
     """Test the primary pools list method using network-specific endpoint."""
     pools_response = client.pools.list_by_network(test_data["ethereum_network"], limit=5)
     assert pools_response is not None
-    assert hasattr(pools_response, 'pools')
-    assert len(pools_response.pools) > 0
+    assert hasattr(pools_response, 'results')
+    assert len(pools_response.results) > 0
+    # New search item shape: pool address under `id`, timeframe-split volume
+    pool = pools_response.results[0]
+    assert hasattr(pool, 'id')
+    assert hasattr(pool, 'volume_usd_24h')
+    assert hasattr(pool, 'transactions_24h')
 
 def test_dexes_list(client, test_data):
     dexes_response = client.dexes.list(test_data["ethereum_network"])
@@ -151,12 +160,14 @@ def test_pools_filter(client, test_data):
     )
     assert filtered is not None
     assert hasattr(filtered, 'results')
-    assert hasattr(filtered, 'page_info')
+    # Cursor-based pagination: has_next_page / next_cursor, not page_info
+    assert hasattr(filtered, 'has_next_page')
+    assert hasattr(filtered, 'next_cursor')
     assert len(filtered.results) > 0
     # Verify each pool has the expected fields
     pool = filtered.results[0]
     assert hasattr(pool, 'id')
-    # The filter endpoint returns timeframe-split volume, not a flat volume_usd
+    # The search endpoint returns timeframe-split volume, not a flat volume_usd
     assert hasattr(pool, 'volume_usd_24h')
     assert hasattr(pool, 'tokens')
 
@@ -178,15 +189,18 @@ def test_tokens_get_top(client, test_data):
     """Test getting top tokens on a network."""
     top_tokens = client.tokens.get_top(test_data["ethereum_network"], limit=5)
     assert top_tokens is not None
-    assert hasattr(top_tokens, 'tokens')
-    assert hasattr(top_tokens, 'page_info')
-    assert len(top_tokens.tokens) > 0
-    # Verify token structure
-    token = top_tokens.tokens[0]
+    # Unified search response: rows under `results`, cursor pagination
+    assert hasattr(top_tokens, 'results')
+    assert hasattr(top_tokens, 'has_next_page')
+    assert len(top_tokens.results) > 0
+    # New flat token search item: identified by address, no name/symbol
+    token = top_tokens.results[0]
     assert hasattr(token, 'address')
-    assert hasattr(token, 'name')
-    assert hasattr(token, 'symbol')
+    assert hasattr(token, 'chain')
     assert hasattr(token, 'price_usd')
+    assert hasattr(token, 'volume_usd_24h')
+    # `tokens` remains as a backward-compatible alias for `results`
+    assert top_tokens.tokens == top_tokens.results
 
 def test_tokens_get_top_with_sort(client, test_data):
     """Test getting top tokens with custom sorting."""
@@ -197,7 +211,7 @@ def test_tokens_get_top_with_sort(client, test_data):
         limit=3
     )
     assert top_tokens is not None
-    assert hasattr(top_tokens, 'tokens')
+    assert hasattr(top_tokens, 'results')
 
 # Token Filter API tests
 def test_tokens_filter(client, test_data):
@@ -209,7 +223,9 @@ def test_tokens_filter(client, test_data):
     )
     assert filtered is not None
     assert hasattr(filtered, 'results')
-    assert hasattr(filtered, 'page_info')
+    # Cursor-based pagination: has_next_page / next_cursor, not page_info
+    assert hasattr(filtered, 'has_next_page')
+    assert hasattr(filtered, 'next_cursor')
     assert len(filtered.results) > 0
     # Verify token structure
     token = filtered.results[0]

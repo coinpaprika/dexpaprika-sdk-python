@@ -67,48 +67,18 @@ class TokenDetailsLight(BaseModel):
     status: Optional[str] = Field(None, description="Token status")
 
 
-class TopTokenTimeMetrics(BaseModel):
-    """Time interval metrics for top tokens (lighter than full TimeIntervalMetrics)."""
+class TokenSearchResult(BaseModel):
+    """A token item from the unified /networks/{network}/tokens/search endpoint.
 
-    volume_usd: float = Field(...)
-    txns: int = Field(...)
-    last_price_usd_change: Optional[float] = Field(None)
-    buys: Optional[int] = Field(None)
-    sells: Optional[int] = Field(None)
-
-
-class TopToken(BaseModel):
-    """Token data from the top tokens endpoint."""
+    Replaces the old tokens/top and tokens/filter shapes, which had nested time
+    metrics and name/symbol. The search shape is flat and identifies a token by
+    ``address``; there is no name, symbol, pools count or buys/sells. Metric
+    fields are optional so a future shape tweak can't break deserialization.
+    """
 
     address: str = Field(...)
-    name: str = Field(...)
-    symbol: str = Field(...)
     chain: str = Field(...)
-    decimals: int = Field(...)
-    has_image: Optional[bool] = Field(None)
-    price_usd: Optional[float] = Field(None)
-    fdv: Optional[float] = Field(None)
-    liquidity_usd: Optional[float] = Field(None)
-    pools: Optional[int] = Field(None)
-
-    # Time interval metrics
-    day: Optional[TopTokenTimeMetrics] = Field(None, alias="24h")
-    hour1: Optional[TopTokenTimeMetrics] = Field(None, alias="1h")
-    minute5: Optional[TopTokenTimeMetrics] = Field(None, alias="5m")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class TopTokensResponse(PaginatedResponse):
-    """Response from the top tokens endpoint."""
-    tokens: List[TopToken] = Field(...)
-
-
-class FilteredToken(BaseModel):
-    """Token data from the token filter endpoint."""
-
-    chain: str = Field(...)
-    address: str = Field(...)
+    created_at: Optional[str] = Field(None)
     price_usd: Optional[float] = Field(None)
     volume_usd_24h: Optional[float] = Field(None)
     volume_usd_7d: Optional[float] = Field(None)
@@ -116,12 +86,37 @@ class FilteredToken(BaseModel):
     liquidity_usd: Optional[float] = Field(None)
     fdv_usd: Optional[float] = Field(None)
     txns_24h: Optional[int] = Field(None)
-    created_at: Optional[str] = Field(None)
+    price_change_percentage_24h: Optional[float] = Field(None)
 
 
-class TokenFilterResponse(PaginatedResponse):
-    """Response from the token filter endpoint."""
-    results: List[FilteredToken] = Field(...)
+class TokenSearchResponse(BaseModel):
+    """Cursor-paginated response from /networks/{network}/tokens/search.
+
+    The search endpoints are cursor-based: there is no ``page_info``. Rows are
+    under ``results`` with ``has_next_page`` / ``next_cursor`` for pagination.
+    """
+
+    results: List[TokenSearchResult] = Field(default_factory=list)
+    has_next_page: bool = Field(False)
+    next_cursor: Optional[str] = Field(None)
+    query: Optional[Dict[str, Any]] = Field(None)
+
+    @property
+    def tokens(self) -> List[TokenSearchResult]:
+        """Backward-compatible accessor: the old top-tokens endpoint returned
+        rows under ``tokens``. The search endpoint returns them under
+        ``results``."""
+        return self.results
+
+
+# Backward-compatible aliases. These names referred to the now-removed
+# tokens/top and tokens/filter shapes; they now point at the unified search
+# models. (TopTokenTimeMetrics was removed: the flat search shape has no nested
+# time-interval objects.)
+FilteredToken = TokenSearchResult
+TokenFilterResponse = TokenSearchResponse
+TopToken = TokenSearchResult
+TopTokensResponse = TokenSearchResponse
 
 
 class TokenPrice(BaseModel):

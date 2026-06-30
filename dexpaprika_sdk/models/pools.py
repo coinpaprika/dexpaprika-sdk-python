@@ -121,34 +121,66 @@ class TransactionsResponse(PaginatedResponse[Transaction]):
     transactions: List[Transaction] = Field(...)
 
 
-class FilteredPool(BaseModel):
-    """Pool data from the pool filter endpoint (/networks/{id}/pools/filter).
+class PoolSearchToken(BaseModel):
+    """Lightweight token reference returned inside /pools/search results.
 
-    The filter endpoint returns a different shape than the pools list: volume is
-    broken out by timeframe (volume_usd_24h / _7d / _30d) and liquidity_usd is
-    included, instead of the single flat ``volume_usd`` the list endpoint returns.
-    Metric fields are optional so a future shape tweak can't break deserialization.
+    The search endpoint only returns id, name and symbol per token (not the full
+    Token model used by the still-valid list/detail endpoints).
     """
 
     id: str = Field(...)
-    dex_id: str = Field(...)
-    dex_name: str = Field(...)
+    name: Optional[str] = Field(None)
+    symbol: Optional[str] = Field(None)
+
+
+class PoolSearchResult(BaseModel):
+    """A pool item from the unified /networks/{network}/pools/search endpoint.
+
+    Replaces the old pools-list and pools/filter shapes. ``id`` is the pool
+    address, volume is broken out by timeframe, transactions is
+    ``transactions_24h`` and price changes are percentages. Metric fields are
+    optional so a future shape tweak can't break deserialization.
+    """
+
+    id: str = Field(...)  # pool address
     chain: str = Field(...)
-    tokens: List[Token] = Field(...)
+    dex_id: Optional[str] = Field(None)
+    dex_name: Optional[str] = Field(None)
+    fee: Optional[float] = Field(None)
     created_at: Optional[str] = Field(None)
     created_at_block_number: Optional[int] = Field(None)
-    transactions: Optional[int] = Field(None)
-    price_usd: Optional[float] = Field(None)
     volume_usd_24h: Optional[float] = Field(None)
     volume_usd_7d: Optional[float] = Field(None)
     volume_usd_30d: Optional[float] = Field(None)
     liquidity_usd: Optional[float] = Field(None)
-    last_price_change_usd_5m: Optional[float] = Field(None)
-    last_price_change_usd_1h: Optional[float] = Field(None)
-    last_price_change_usd_24h: Optional[float] = Field(None)
-    fee: Optional[float] = Field(None)
+    transactions_24h: Optional[int] = Field(None)
+    price_usd: Optional[float] = Field(None)
+    price_change_percentage_5m: Optional[float] = Field(None)
+    price_change_percentage_1h: Optional[float] = Field(None)
+    price_change_percentage_24h: Optional[float] = Field(None)
+    tokens: List[PoolSearchToken] = Field(default_factory=list)
 
 
-class PoolFilterResponse(PaginatedResponse[FilteredPool]):
-    # pool filter response (uses 'results' key)
-    results: List[FilteredPool] = Field(...)
+class PoolSearchResponse(BaseModel):
+    """Cursor-paginated response from /networks/{network}/pools/search.
+
+    The search endpoints are cursor-based: there is no ``page_info``. Rows are
+    under ``results`` with ``has_next_page`` / ``next_cursor`` for pagination.
+    """
+
+    results: List[PoolSearchResult] = Field(default_factory=list)
+    has_next_page: bool = Field(False)
+    next_cursor: Optional[str] = Field(None)
+    query: Optional[Dict[str, Any]] = Field(None)
+
+    @property
+    def pools(self) -> List[PoolSearchResult]:
+        """Backward-compatible accessor: the old list endpoints returned rows
+        under ``pools``. The search endpoint returns them under ``results``."""
+        return self.results
+
+
+# Backward-compatible aliases. These names referred to the now-removed /pools
+# and /pools/filter response shapes; they now point at the unified search models.
+FilteredPool = PoolSearchResult
+PoolFilterResponse = PoolSearchResponse

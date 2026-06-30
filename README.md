@@ -33,6 +33,43 @@ cd dexpaprika-sdk-python
 pip install -e .
 ```
 
+## Migration Guide (v0.5.0)
+
+**Important:** DexPaprika removed four REST endpoints (they now return `410 Gone`)
+and replaced them with unified search endpoints. The SDK was repointed
+accordingly:
+
+- `pools.list_by_network()` and `pools.filter()` now call `/networks/{network}/pools/search`
+- `tokens.get_top()` and `tokens.filter()` now call `/networks/{network}/tokens/search`
+
+Method signatures are unchanged (your existing `order_by` / `sort_by` / `sort_dir`
+values keep working; legacy sort fields and filter names are mapped to the new
+canonical ones automatically). What changed is the response shape:
+
+- Responses now expose rows under `results` (with `has_next_page` and `next_cursor`)
+  instead of `pools` / `tokens` / `page_info`. The old `.pools` / `.tokens`
+  attributes remain as backward-compatible aliases for `.results`.
+- Pagination is cursor-based. `page` is still accepted for backward compatibility
+  but is ignored; pass `cursor=...` to page through results.
+- Pool items: `id` is the pool address, volume is split into
+  `volume_usd_24h` / `volume_usd_7d` / `volume_usd_30d`, transactions are
+  `transactions_24h`, and price moves are `price_change_percentage_5m/1h/24h`.
+- Token items are flat and identified by `address` (no `name`/`symbol`, no nested
+  time-interval objects): `price_usd`, `volume_usd_24h/7d/30d`, `liquidity_usd`,
+  `fdv_usd`, `txns_24h`, `price_change_percentage_24h`.
+
+```python
+# Before:
+pools = client.pools.list_by_network("ethereum")
+for p in pools.pools:
+    print(p.volume_usd)
+
+# After:
+pools = client.pools.list_by_network("ethereum")
+for p in pools.results:          # .pools still works as an alias
+    print(p.volume_usd_24h)
+```
+
 ## Migration Guide (v0.3.0)
 
 **Important:** Version 0.3.0 includes breaking changes due to DexPaprika API v1.3.0 updates.
@@ -98,13 +135,13 @@ print(f"DexPaprika stats: {stats.chains} chains, {stats.pools} pools")
 # Get top pools by volume (network-specific)
 pools = client.pools.list_by_network(
     network_id="ethereum",
-    limit=5, 
-    order_by="volume_usd", 
+    limit=5,
+    order_by="volume_usd_24h",
     sort="desc"
 )
-for pool in pools.pools:
+for pool in pools.results:
     token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown Pair"
-    print(f"- {token_pair} on {pool.dex_name} ({pool.chain}): ${pool.volume_usd:.2f} volume")
+    print(f"- {token_pair} on {pool.dex_name} ({pool.chain}): ${pool.volume_usd_24h or 0:,.2f} volume")
 ```
 
 ### Advanced Examples
@@ -114,11 +151,12 @@ for pool in pools.pools:
 ```python
 # Get top Ethereum pools
 eth_pools = client.pools.list_by_network(
-    network_id="ethereum", 
-    limit=5, 
-    order_by="volume_usd", 
+    network_id="ethereum",
+    limit=5,
+    order_by="volume_usd_24h",
     sort="desc"
 )
+# Rows are under `results`; pagination is cursor-based (has_next_page / next_cursor)
 ```
 
 #### Get pools for a specific DEX
@@ -176,16 +214,18 @@ filtered = client.pools.filter(
 )
 for pool in filtered.results:
     token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown"
-    print(f"- {token_pair}: ${pool.volume_usd:,.0f} volume")
+    print(f"- {token_pair}: ${pool.volume_usd_24h or 0:,.0f} volume")
 ```
 
 #### Get top tokens on a network
 
 ```python
 # Get top tokens by volume on Ethereum
+# The flat search shape identifies a token by `address` (no name/symbol); rows
+# are under `results`.
 top = client.tokens.get_top("ethereum", order_by="volume_24h", limit=5)
-for token in top.tokens:
-    print(f"- {token.symbol}: ${token.price_usd:.4f} (24h vol: ${token.day.volume_usd:,.0f})")
+for token in top.results:
+    print(f"- {token.address}: ${token.price_usd or 0:.4f} (24h vol: ${token.volume_usd_24h or 0:,.0f})")
 ```
 
 #### Filter tokens by criteria
@@ -199,7 +239,7 @@ filtered = client.tokens.filter(
     limit=10
 )
 for token in filtered.results:
-    print(f"- {token.address}: ${token.volume_usd_24h:,.0f} vol, ${token.fdv_usd:,.0f} FDV")
+    print(f"- {token.address}: ${token.volume_usd_24h or 0:,.0f} vol, ${token.fdv_usd or 0:,.0f} FDV")
 ```
 
 #### Get batch prices for multiple tokens

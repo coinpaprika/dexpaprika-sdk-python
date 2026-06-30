@@ -36,12 +36,12 @@ class TestParameterValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.client.pools.list_by_network("ethereum", sort="invalid")
         self.assertIn("sort must be one of: asc, desc", str(context.exception))
-        
-        # Test invalid order_by
-        with self.assertRaises(ValueError) as context:
-            self.client.pools.list_by_network("ethereum", order_by="invalid")
-        self.assertIn("order_by must be one of:", str(context.exception))
-        
+
+        # Note: order_by is no longer validated against a fixed enum. The unified
+        # /pools/search and /tokens/search endpoints 400 on legacy sort fields, so
+        # the SDK maps known legacy values to canonical ones and falls back to a
+        # sensible default for anything unknown (rather than raising).
+
         # Test invalid interval
         with self.assertRaises(ValueError) as context:
             self.client.pools.get_ohlcv(
