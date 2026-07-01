@@ -8,6 +8,103 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 
+
+# ---------------------------------------------------------------------------
+# Unified search endpoint mappings
+#
+# DexPaprika removed the legacy /pools, /pools/filter, /tokens/top and
+# /tokens/filter endpoints (now HTTP 410) in favour of /pools/search and
+# /tokens/search. The search endpoints return HTTP 400 for the old sort-field
+# values and the old filter param names, so everything must be mapped to the
+# canonical names below. These are small, pure helpers shared by the pools and
+# tokens API services.
+# ---------------------------------------------------------------------------
+
+# Sort-field values accepted as-is by /pools/search.
+POOL_SORT_CANONICAL: Set[str] = {
+    "volume_usd_24h", "volume_usd_7d", "volume_usd_30d", "liquidity_usd",
+    "txns_24h", "created_at", "price_usd", "price_change_percentage_24h",
+}
+
+# Legacy sort-field value -> canonical /pools/search value.
+POOL_SORT_FIELD_MAP: Dict[str, str] = {
+    "volume_usd": "volume_usd_24h",
+    "transactions": "txns_24h",
+    "last_price_change_usd_24h": "price_change_percentage_24h",
+    "volume_24h": "volume_usd_24h",
+    "volume_7d": "volume_usd_7d",
+    "volume_30d": "volume_usd_30d",
+    "liquidity": "liquidity_usd",
+}
+
+# Sort-field values accepted as-is by /tokens/search.
+TOKEN_SORT_CANONICAL: Set[str] = {
+    "volume_usd_24h", "volume_usd_7d", "volume_usd_30d", "liquidity_usd",
+    "txns_24h", "fdv_usd", "created_at", "price_change_percentage_24h",
+}
+
+# Legacy sort-field value -> canonical /tokens/search value.
+# Note: /tokens/search returns 400 when ordering by price, so price_usd falls
+# back to volume_usd_24h.
+TOKEN_SORT_FIELD_MAP: Dict[str, str] = {
+    "volume_24h": "volume_usd_24h",
+    "txns": "txns_24h",
+    "price_change": "price_change_percentage_24h",
+    "fdv": "fdv_usd",
+    "volume_7d": "volume_usd_7d",
+    "volume_30d": "volume_usd_30d",
+    "price_usd": "volume_usd_24h",
+}
+
+# Legacy filter param name -> canonical /pools/search query param name.
+# Names not listed here (liquidity_usd_min, liquidity_usd_max, txns_24h_min,
+# created_after, created_before) are already canonical and pass through.
+POOL_FILTER_PARAM_MAP: Dict[str, str] = {
+    "volume_24h_min": "volume_usd_24h_min",
+    "volume_24h_max": "volume_usd_24h_max",
+    "volume_7d_min": "volume_usd_7d_min",
+    "volume_7d_max": "volume_usd_7d_max",
+}
+
+# Legacy filter param name -> canonical /tokens/search query param name.
+# Names not listed here (liquidity_usd_min, fdv_min, fdv_max, txns_24h_min,
+# created_after, created_before) are already canonical and pass through.
+TOKEN_FILTER_PARAM_MAP: Dict[str, str] = {
+    "volume_24h_min": "volume_usd_24h_min",
+    "volume_24h_max": "volume_usd_24h_max",
+}
+
+
+def map_pool_sort_field(value: Optional[str]) -> str:
+    """Map a (possibly legacy) pool sort field to the canonical search value.
+
+    Canonical values pass through unchanged; known legacy values are translated;
+    anything unknown falls back to the default ``volume_usd_24h``.
+    """
+    if value in POOL_SORT_CANONICAL:
+        return value
+    return POOL_SORT_FIELD_MAP.get(value, "volume_usd_24h")
+
+
+def map_token_sort_field(value: Optional[str]) -> str:
+    """Map a (possibly legacy) token sort field to the canonical search value.
+
+    Canonical values pass through unchanged; known legacy values are translated;
+    anything unknown falls back to the default ``volume_usd_24h``.
+    """
+    if value in TOKEN_SORT_CANONICAL:
+        return value
+    return TOKEN_SORT_FIELD_MAP.get(value, "volume_usd_24h")
+
+
+def map_filter_params(filters: Dict[str, Any], name_map: Dict[str, str]) -> Dict[str, Any]:
+    """Rename legacy filter param keys to their canonical search names.
+
+    Keys absent from ``name_map`` are already canonical and pass through. Values
+    are left untouched (None values are dropped later by ``_clean_params``).
+    """
+    return {name_map.get(key, key): value for key, value in filters.items()}
+
 class CacheEntry:
     """Class representing a cached response with an expiration time."""
     

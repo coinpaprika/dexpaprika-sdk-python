@@ -1,8 +1,8 @@
 from typing import Optional, Dict, Any, Set, List, Union
 
-from .base import BaseAPI
+from .base import BaseAPI, map_token_sort_field, map_filter_params, TOKEN_FILTER_PARAM_MAP
 from ..models.tokens import (
-    TokenDetails, TopTokensResponse, TokenFilterResponse, TokenPrice,
+    TokenDetails, TokenSearchResponse, TokenPrice,
 )
 from ..models.pools import PoolsResponse
 from ..utils.perf import track_perf
@@ -104,19 +104,27 @@ class TokensAPI(BaseAPI):
         limit: int = 10,
         order_by: str = "volume_24h",
         sort: str = "desc",
-    ) -> TopTokensResponse:
+        cursor: Optional[str] = None,
+    ) -> TokenSearchResponse:
         """
-        Get top tokens on a network ranked by volume, price, liquidity, or other metrics.
+        Get top tokens on a network ranked by volume, liquidity, or other metrics.
+
+        Backed by /networks/{network}/tokens/search. Legacy sort-field values are
+        mapped to the canonical search names automatically.
 
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
-            page: Page number for pagination (1-indexed)
+            page: Accepted for backward compatibility. The search endpoint is
+                cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page (max 100)
-            order_by: Field to order by (e.g., "volume_24h", "price_usd", "liquidity_usd", "txns_24h")
+            order_by: Field to order by (e.g., "volume_24h", "liquidity_usd", "txns_24h").
+                Note: tokens/search cannot order by price; "price_usd" falls back
+                to volume_usd_24h.
             sort: Sort direction ("asc" or "desc")
+            cursor: Cursor for cursor-based pagination
 
         Returns:
-            Top tokens with pagination info
+            Cursor-paginated token search response
 
         Raises:
             ValueError: If any parameter is invalid
@@ -127,19 +135,19 @@ class TokensAPI(BaseAPI):
         self._validate_enum("sort", sort, self.VALID_SORT_VALUES)
 
         params = {
-            "page": page,
             "limit": limit,
-            "order_by": order_by,
+            "order_by": map_token_sort_field(order_by),
             "sort": sort,
+            "cursor": cursor,
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/tokens/top", params=params)
+        data = self._get(f"/networks/{network_id}/tokens/search", params=params)
 
-        if 'tokens' not in data:
-            data['tokens'] = []
+        if 'results' not in data:
+            data['results'] = []
 
-        return TopTokensResponse(**data)
+        return TokenSearchResponse(**data)
 
     @track_perf
     def filter(
@@ -157,13 +165,18 @@ class TokensAPI(BaseAPI):
         txns_24h_min: Optional[int] = None,
         created_after: Optional[Union[int, str]] = None,
         created_before: Optional[Union[int, str]] = None,
-    ) -> TokenFilterResponse:
+        cursor: Optional[str] = None,
+    ) -> TokenSearchResponse:
         """
         Filter tokens on a network by volume, liquidity, FDV, transactions, and creation date.
 
+        Backed by /networks/{network}/tokens/search. Legacy sort-field values and
+        filter param names are mapped to the canonical search names automatically.
+
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
-            page: Page number for pagination (1-indexed)
+            page: Accepted for backward compatibility. The search endpoint is
+                cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page (max 100)
             sort_by: Field to sort by (e.g., "volume_24h", "liquidity_usd", "fdv", "txns_24h")
             sort_dir: Sort direction ("asc" or "desc")
@@ -175,9 +188,10 @@ class TokensAPI(BaseAPI):
             txns_24h_min: Minimum number of transactions in 24h
             created_after: Only tokens created after this time (Unix timestamp)
             created_before: Only tokens created before this time (Unix timestamp)
+            cursor: Cursor for cursor-based pagination
 
         Returns:
-            Filtered tokens with pagination info
+            Cursor-paginated token search response
 
         Raises:
             ValueError: If any parameter is invalid
@@ -187,11 +201,15 @@ class TokensAPI(BaseAPI):
         self._validate_range("limit", limit, min_val=1, max_val=100)
         self._validate_enum("sort_dir", sort_dir, self.VALID_SORT_VALUES)
 
+        # Sort + pagination, using canonical search param names.
         params = {
-            "page": page,
             "limit": limit,
-            "sort_by": sort_by,
-            "sort_dir": sort_dir,
+            "order_by": map_token_sort_field(sort_by),
+            "sort": sort_dir,
+            "cursor": cursor,
+        }
+        # Filter params, renamed from legacy to canonical search names.
+        filters = {
             "volume_24h_min": volume_24h_min,
             "volume_24h_max": volume_24h_max,
             "liquidity_usd_min": liquidity_usd_min,
@@ -201,17 +219,15 @@ class TokensAPI(BaseAPI):
             "created_after": created_after,
             "created_before": created_before,
         }
+        params.update(map_filter_params(filters, TOKEN_FILTER_PARAM_MAP))
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/tokens/filter", params=params)
+        data = self._get(f"/networks/{network_id}/tokens/search", params=params)
 
-        # The token filter endpoint returns rows under a "data" key, not "results".
-        # Map it across (falling back to an empty list) so callers get a consistent
-        # ``results`` field regardless of the wire key.
         if 'results' not in data:
-            data['results'] = data.get('data', [])
+            data['results'] = []
 
-        return TokenFilterResponse(**data)
+        return TokenSearchResponse(**data)
 
     @track_perf
     def get_multi_prices(

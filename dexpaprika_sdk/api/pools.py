@@ -1,52 +1,58 @@
 from typing import List, Optional, Dict, Any, Set, Union
 import warnings
 
-from .base import BaseAPI
+from .base import BaseAPI, map_pool_sort_field, map_filter_params, POOL_FILTER_PARAM_MAP
 from ..models.pools import (
     PoolsResponse, PoolDetails, OHLCVRecord, TransactionsResponse,
-    PoolFilterResponse,
+    PoolSearchResponse,
 )
 
 
 class PoolsAPI(BaseAPI):
     """API service for pool-related endpoints."""
-    
+
     # Valid values for common parameters
     VALID_SORT_VALUES: Set[str] = {"asc", "desc"}
+    # order_by for the still-valid DEX pools endpoint (/dexes/{dex}/pools).
     VALID_ORDER_BY_VALUES: Set[str] = {"volume_usd", "price_usd", "transactions", "last_price_change_usd_24h", "created_at"}
     VALID_INTERVAL_VALUES: Set[str] = {"1m", "5m", "10m", "15m", "30m", "1h", "6h", "12h", "24h"}
     
     def list(
-        self, 
-        page: int = 0, 
-        limit: int = 10, 
-        sort: str = "desc", 
-        order_by: str = "volume_usd"
-    ) -> PoolsResponse:
+        self,
+        page: int = 0,
+        limit: int = 10,
+        sort: str = "desc",
+        order_by: str = "volume_usd",
+        cursor: Optional[str] = None,
+    ) -> PoolSearchResponse:
         """
         DEPRECATED: Get a list of top pools across all networks.
-        
-        This method is deprecated due to API changes. The global /pools endpoint 
+
+        This method is deprecated due to API changes. The global /pools endpoint
         has been removed. Use list_by_network(network_id, ...) instead.
-        
-        For backward compatibility, this method now defaults to Ethereum network.
-        
+
+        For backward compatibility, this method now defaults to the Ethereum
+        network (via /networks/ethereum/pools/search).
+
         Args:
-            page: Page number for pagination
+            page: Accepted for backward compatibility. The search endpoint is
+                cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page
             sort: Sort order ("asc" or "desc")
-            order_by: Field to order by ("volume_usd", "price_usd", etc.)
-            
+            order_by: Field to order by (legacy values such as "volume_usd" are
+                mapped to canonical search fields automatically)
+            cursor: Cursor for cursor-based pagination
+
         Returns:
-            Response containing a list of pools
-            
+            Cursor-paginated pool search response
+
         Raises:
             ValueError: If any parameter is invalid
-            
+
         Migration Examples:
             # Before (deprecated):
             pools = client.pools.list()
-            
+
             # After (recommended):
             pools = client.pools.list_by_network('ethereum')
             pools = client.pools.list_by_network('solana')
@@ -54,63 +60,43 @@ class PoolsAPI(BaseAPI):
         # Issue deprecation warning
         warnings.warn(
             "The pools.list() method is deprecated. The global /pools endpoint has been "
-            "removed in API v1.3.0. Use pools.list_by_network(network_id) instead. "
-            "This method now defaults to Ethereum network for backward compatibility. "
+            "removed. Use pools.list_by_network(network_id) instead. "
+            "This method now defaults to the Ethereum network for backward compatibility. "
             "Examples: client.pools.list_by_network('ethereum'), "
             "client.pools.list_by_network('solana')",
             DeprecationWarning,
             stacklevel=2
         )
-        
-        # Validate parameters
-        self._validate_range("page", page, min_val=0)
-        self._validate_range("limit", limit, min_val=1, max_val=100)
-        self._validate_enum("sort", sort, self.VALID_SORT_VALUES)
-        self._validate_enum("order_by", order_by, self.VALID_ORDER_BY_VALUES)
-        
-        try:
-            # Attempt to call the deprecated endpoint first for debugging/testing
-            params = {"page": page, "limit": limit, "sort": sort, "order_by": order_by}
-            data = self._get("/pools", params=params)
-            
-            # ensure pools exists
-            if 'pools' not in data: data['pools'] = []
-                
-            return PoolsResponse(**data)
-            
-        except Exception as e:
-            # If we get a 410 Gone or any other error, fall back to Ethereum
-            # Check if it's a 410 Gone status specifically
-            if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 410:
-                # Provide a more specific error message for 410 Gone
-                print("WARNING: The global /pools endpoint has been permanently removed (410 Gone). "
-                      "Falling back to Ethereum network. Please update your code to use "
-                      "pools.list_by_network(network_id) instead.")
-            
-            # Fall back to Ethereum network for backward compatibility
-            return self.list_by_network("ethereum", page=page, limit=limit, sort=sort, order_by=order_by)
-    
+
+        return self.list_by_network(
+            "ethereum", page=page, limit=limit, sort=sort, order_by=order_by, cursor=cursor
+        )
+
     def list_by_network(
-        self, 
-        network_id: str, 
-        page: int = 0, 
-        limit: int = 10, 
-        sort: str = "desc", 
-        order_by: str = "volume_usd"
-    ) -> PoolsResponse:
+        self,
+        network_id: str,
+        page: int = 0,
+        limit: int = 10,
+        sort: str = "desc",
+        order_by: str = "volume_usd",
+        cursor: Optional[str] = None,
+    ) -> PoolSearchResponse:
         """
-        Get a list of pools on a specific network.
-        
+        Get a list of pools on a specific network via /pools/search.
+
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
-            page: Page number for pagination
+            page: Accepted for backward compatibility. The search endpoint is
+                cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page
             sort: Sort order ("asc" or "desc")
-            order_by: Field to order by ("volume_usd", "price_usd", etc.)
-            
+            order_by: Field to order by (legacy values such as "volume_usd" are
+                mapped to canonical search fields automatically)
+            cursor: Cursor for cursor-based pagination
+
         Returns:
-            Response containing a list of pools
-            
+            Cursor-paginated pool search response
+
         Raises:
             ValueError: If any parameter is invalid
         """
@@ -119,16 +105,23 @@ class PoolsAPI(BaseAPI):
         self._validate_range("page", page, min_val=0)
         self._validate_range("limit", limit, min_val=1, max_val=100)
         self._validate_enum("sort", sort, self.VALID_SORT_VALUES)
-        self._validate_enum("order_by", order_by, self.VALID_ORDER_BY_VALUES)
-        
-        # Get network pools
-        params = {"page": page, "limit": limit, "sort": sort, "order_by": order_by}
-        data = self._get(f"/networks/{network_id}/pools", params=params)
-        
-        # ensure pools exists
-        if 'pools' not in data: data['pools'] = []
-            
-        return PoolsResponse(**data)
+
+        # Build the cursor-based search request with canonical names.
+        params = {
+            "limit": limit,
+            "order_by": map_pool_sort_field(order_by),
+            "sort": sort,
+            "cursor": cursor,
+        }
+        params = self._clean_params(params)
+
+        data = self._get(f"/networks/{network_id}/pools/search", params=params)
+
+        # ensure results exists
+        if 'results' not in data:
+            data['results'] = []
+
+        return PoolSearchResponse(**data)
     
     def list_by_dex(
         self, 
@@ -309,13 +302,18 @@ class PoolsAPI(BaseAPI):
         txns_24h_min: Optional[int] = None,
         created_after: Optional[Union[int, str]] = None,
         created_before: Optional[Union[int, str]] = None,
-    ) -> PoolFilterResponse:
+        cursor: Optional[str] = None,
+    ) -> PoolSearchResponse:
         """
         Filter pools on a network by volume, liquidity, transactions, and creation date.
 
+        Backed by /networks/{network}/pools/search. Legacy sort-field values and
+        filter param names are mapped to the canonical search names automatically.
+
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
-            page: Page number for pagination (1-indexed)
+            page: Accepted for backward compatibility. The search endpoint is
+                cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page (max 100)
             sort_by: Field to sort by (e.g., "volume_24h", "liquidity_usd", "txns_24h", "created_at")
             sort_dir: Sort direction ("asc" or "desc")
@@ -328,9 +326,10 @@ class PoolsAPI(BaseAPI):
             txns_24h_min: Minimum number of transactions in 24h
             created_after: Only pools created after this time (Unix timestamp)
             created_before: Only pools created before this time (Unix timestamp)
+            cursor: Cursor for cursor-based pagination
 
         Returns:
-            Filtered pools with pagination info
+            Cursor-paginated pool search response
 
         Raises:
             ValueError: If any parameter is invalid
@@ -340,11 +339,15 @@ class PoolsAPI(BaseAPI):
         self._validate_range("limit", limit, min_val=1, max_val=100)
         self._validate_enum("sort_dir", sort_dir, self.VALID_SORT_VALUES)
 
+        # Sort + pagination, using canonical search param names.
         params = {
-            "page": page,
             "limit": limit,
-            "sort_by": sort_by,
-            "sort_dir": sort_dir,
+            "order_by": map_pool_sort_field(sort_by),
+            "sort": sort_dir,
+            "cursor": cursor,
+        }
+        # Filter params, renamed from legacy to canonical search names.
+        filters = {
             "volume_24h_min": volume_24h_min,
             "volume_24h_max": volume_24h_max,
             "volume_7d_min": volume_7d_min,
@@ -355,11 +358,12 @@ class PoolsAPI(BaseAPI):
             "created_after": created_after,
             "created_before": created_before,
         }
+        params.update(map_filter_params(filters, POOL_FILTER_PARAM_MAP))
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/pools/filter", params=params)
+        data = self._get(f"/networks/{network_id}/pools/search", params=params)
 
         if 'results' not in data:
             data['results'] = []
 
-        return PoolFilterResponse(**data)
+        return PoolSearchResponse(**data)

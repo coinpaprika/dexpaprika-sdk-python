@@ -16,25 +16,29 @@ from .models import (
     Network, Dex, DexesResponse,
     Token, Pool, PoolsResponse, TimeIntervalMetrics,
     PoolDetails, OHLCVRecord, Transaction, TransactionsResponse,
+    PoolSearchToken, PoolSearchResult, PoolSearchResponse,
     FilteredPool, PoolFilterResponse,
     TokenSummary, TokenDetails,
-    TopTokenTimeMetrics, TopToken, TopTokensResponse,
-    FilteredToken, TokenFilterResponse, TokenPrice,
+    TokenSearchResult, TokenSearchResponse,
+    TopToken, TopTokensResponse, FilteredToken, TokenFilterResponse,
+    TokenPrice,
     DexInfo, SearchResult,
     Stats
 )
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = [
     "DexPaprikaClient",
     # Models
     "Network", "Dex", "DexesResponse",
     "Token", "Pool", "PoolsResponse", "TimeIntervalMetrics",
     "PoolDetails", "OHLCVRecord", "Transaction", "TransactionsResponse",
+    "PoolSearchToken", "PoolSearchResult", "PoolSearchResponse",
     "FilteredPool", "PoolFilterResponse",
     "TokenSummary", "TokenDetails",
-    "TopTokenTimeMetrics", "TopToken", "TopTokensResponse",
-    "FilteredToken", "TokenFilterResponse", "TokenPrice",
+    "TokenSearchResult", "TokenSearchResponse",
+    "TopToken", "TopTokensResponse", "FilteredToken", "TokenFilterResponse",
+    "TokenPrice",
     "DexInfo", "SearchResult",
     "Stats",
 ]
