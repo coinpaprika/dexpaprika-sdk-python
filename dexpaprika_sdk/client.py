@@ -10,6 +10,7 @@ from .api.tokens import TokensAPI
 from .api.search import SearchAPI
 from .api.utils import UtilsAPI
 from .api.dexes import DexesAPI
+from .exceptions import DeprecatedEndpointError
 
 
 class DexPaprikaClient:
@@ -19,7 +20,7 @@ class DexPaprikaClient:
         self,
         base_url: str = "https://api.dexpaprika.com",
         session: Optional[requests.Session] = None,
-        user_agent: str = "DexPaprika-SDK-Python/0.5.0",
+        user_agent: str = "DexPaprika-SDK-Python/0.5.1",
         max_retries: int = 4,
         backoff_times: List[float] = None,
     ):
@@ -47,13 +48,55 @@ class DexPaprikaClient:
         Returns:
             True if the request should be retried, False otherwise
         """
-        if isinstance(exception, (ConnectionError, Timeout)):
+        if isinstance(exception, DeprecatedEndpointError):
+            # A deprecation hint is deterministic; retrying will never help.
+            return False
+        elif isinstance(exception, (ConnectionError, Timeout)):
             # Always retry connection errors and timeouts
             return True
         elif isinstance(exception, HTTPError):
             # Retry server errors (5xx) but not client errors (4xx)
             return 500 <= exception.response.status_code < 600
         return False
+
+    def _deprecation_error(self, response) -> Optional[DeprecatedEndpointError]:
+        """Build a DeprecatedEndpointError if the error body carries a replacement.
+
+        The API self-documents removed endpoints by returning a non-2xx response
+        whose JSON body includes a "replacement" field. This keys on the presence
+        of that field for ANY error status, so future deprecations surface the
+        same way without hardcoding endpoints or status codes.
+
+        Defensive by design: the body may not be JSON, may not be an object, or
+        may lack "replacement". In any of those cases this returns None so the
+        caller falls back to the current ``raise_for_status`` behavior.
+
+        Args:
+            response: The ``requests.Response`` for a non-2xx request.
+
+        Returns:
+            A DeprecatedEndpointError when a replacement hint is present, else None.
+        """
+        try:
+            body = response.json()
+        except Exception:
+            # Not JSON (or unreadable body): fall back to default handling.
+            return None
+
+        if not isinstance(body, dict):
+            return None
+
+        replacement = body.get("replacement")
+        if not replacement:
+            return None
+
+        message = body.get("message") or "endpoint removed"
+        return DeprecatedEndpointError(
+            message=message,
+            replacement=replacement,
+            status_code=getattr(response, "status_code", None),
+            response=response,
+        )
 
     def request(
         self,
@@ -80,7 +123,15 @@ class DexPaprikaClient:
                     method=method, url=url, params=params, json=data, headers=request_headers,
                 )
 
-                # err check
+                # err check: surface the API's deprecation hint (a "replacement"
+                # field on an error body) as a typed error before the generic
+                # HTTPError. Guarded on a real error status so mocked responses
+                # and success responses are untouched.
+                status_code = getattr(response, "status_code", None)
+                if isinstance(status_code, int) and status_code >= 400:
+                    deprecation = self._deprecation_error(response)
+                    if deprecation is not None:
+                        raise deprecation
                 response.raise_for_status()
 
                 # return data
