@@ -5,6 +5,11 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-01
+
+### Added
+- **`DeprecatedEndpointError`**: when the API returns an error whose body carries a `replacement` field, the client now raises this typed exception (subclass of `DexPaprikaError`) with the API message + `Use <replacement> instead.`, and `.replacement` / `.api_message` / `.status_code` accessors, instead of a bare `requests.HTTPError`. Not retried. Generic across any error status carrying a `replacement`.
+
 ## [0.5.0] - 2026-06-30
 
 ### Breaking Changes

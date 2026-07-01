@@ -5,12 +5,14 @@ Test script to verify caching and retry behavior in the DexPaprika SDK.
 
 import unittest
 import time
+import json
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 import requests
 from requests.exceptions import ConnectionError, Timeout, HTTPError
 
 from dexpaprika_sdk import DexPaprikaClient
+from dexpaprika_sdk.exceptions import DeprecatedEndpointError, DexPaprikaError
 
 
 class TestCachingBehavior(unittest.TestCase):
@@ -176,6 +178,90 @@ class TestRetryBehavior(unittest.TestCase):
             
             # Should be called 3 times (initial + 2 retries)
             self.assertEqual(mock_request.call_count, 3)
+
+
+class TestDeprecationHandling(unittest.TestCase):
+    """Test suite for the API's self-documenting deprecation hints."""
+
+    def setUp(self):
+        """Set up test environment."""
+        self.client = DexPaprikaClient(max_retries=2, backoff_times=[0.01, 0.02])
+
+    @staticmethod
+    def _error_response(status_code, body):
+        """Build a real requests.Response with a JSON (or raw) error body."""
+        response = requests.Response()
+        response.status_code = status_code
+        if isinstance(body, (dict, list)):
+            response._content = json.dumps(body).encode("utf-8")
+        else:
+            response._content = body.encode("utf-8") if isinstance(body, str) else body
+        return response
+
+    def test_replacement_raises_typed_error(self):
+        """A 410 body with a replacement raises DeprecatedEndpointError."""
+        body = {
+            "code": 410,
+            "message": "endpoint removed",
+            "replacement": "/networks/:network/pools/search",
+        }
+        with patch('requests.Session.request') as mock_request:
+            mock_request.return_value = self._error_response(410, body)
+
+            with self.assertRaises(DeprecatedEndpointError) as ctx:
+                self.client.get("/pools")
+
+            error = ctx.exception
+            # It surfaces both the API message and the replacement.
+            self.assertEqual(error.replacement, "/networks/:network/pools/search")
+            self.assertEqual(error.api_message, "endpoint removed")
+            self.assertEqual(error.status_code, 410)
+            self.assertIn("endpoint removed", str(error))
+            self.assertIn(
+                "Use /networks/:network/pools/search instead.", str(error)
+            )
+            # It is a DexPaprikaError so callers can catch the family.
+            self.assertIsInstance(error, DexPaprikaError)
+
+    def test_replacement_is_not_retried(self):
+        """Deprecation hints are deterministic and must not be retried."""
+        body = {"message": "endpoint removed", "replacement": "/pools/search"}
+        with patch('requests.Session.request') as mock_request:
+            mock_request.return_value = self._error_response(410, body)
+
+            with self.assertRaises(DeprecatedEndpointError):
+                self.client.get("/pools")
+
+            self.assertEqual(mock_request.call_count, 1)
+
+    def test_replacement_generic_across_status_codes(self):
+        """Any error status with a replacement surfaces the typed error."""
+        body = {"message": "moved", "replacement": "/tokens/search"}
+        with patch('requests.Session.request') as mock_request:
+            mock_request.return_value = self._error_response(400, body)
+
+            with self.assertRaises(DeprecatedEndpointError) as ctx:
+                self.client.get("/tokens/top")
+
+            self.assertEqual(ctx.exception.replacement, "/tokens/search")
+            self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_error_without_replacement_falls_back(self):
+        """An error body without a replacement keeps the bare HTTPError behavior."""
+        body = {"code": 410, "message": "endpoint removed"}
+        with patch('requests.Session.request') as mock_request:
+            mock_request.return_value = self._error_response(410, body)
+
+            with self.assertRaises(HTTPError):
+                self.client.get("/pools")
+
+    def test_non_json_error_falls_back(self):
+        """A non-JSON error body keeps the bare HTTPError behavior."""
+        with patch('requests.Session.request') as mock_request:
+            mock_request.return_value = self._error_response(410, "not json at all")
+
+            with self.assertRaises(HTTPError):
+                self.client.get("/pools")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ across multiple blockchain networks.
 """
 
 from .client import DexPaprikaClient
+from .exceptions import DexPaprikaError, DeprecatedEndpointError
 # Import models for easier access
 from .models import (
     Network, Dex, DexesResponse,
@@ -26,9 +27,11 @@ from .models import (
     Stats
 )
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 __all__ = [
     "DexPaprikaClient",
+    # Exceptions
+    "DexPaprikaError", "DeprecatedEndpointError",
     # Models
     "Network", "Dex", "DexesResponse",
     "Token", "Pool", "PoolsResponse", "TimeIntervalMetrics",
