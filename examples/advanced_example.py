@@ -179,20 +179,22 @@ def main():
             print(f"Could not get token details: {e}")
             print()
         
-        # Get pools for this token
+        # Get pools for this token (network-scoped /pools/search with token_address)
         print(f"Getting pools containing {token_symbol}...")
         try:
             token_pools = client.tokens.get_pools(
                 network_id=network_id,
                 token_address=token_address,
                 limit=3,
-                order_by="volume_usd",
+                order_by="volume_usd_24h",
                 sort="desc"
             )
-            print(f"Top 3 {token_symbol} pools by volume:")
+            print(f"Top 3 {token_symbol} pools by 24h volume:")
             for pool in token_pools.pools:
-                other_token = pool.tokens[1].symbol if pool.tokens[0].symbol == token_symbol else pool.tokens[0].symbol
-                print(f"- {token_symbol}/{other_token} on {pool.dex_name}: {format_currency(pool.volume_usd)} volume")
+                # Search rows reference tokens by id only (no name/symbol)
+                other_ids = [t.id for t in pool.tokens if t.id != token_address]
+                other_token = other_ids[0] if other_ids else "?"
+                print(f"- {token_symbol} paired with {other_token} on {pool.dex_name}: {format_currency(pool.volume_usd_24h or 0)} 24h volume")
             print()
         except Exception as e:
             print(f"Could not get token pools: {e}")

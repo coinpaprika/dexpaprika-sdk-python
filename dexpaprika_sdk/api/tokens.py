@@ -1,10 +1,14 @@
+import warnings
 from typing import Optional, Dict, Any, Set, List, Union
 
-from .base import BaseAPI, map_token_sort_field, map_filter_params, TOKEN_FILTER_PARAM_MAP
+from .base import (
+    BaseAPI, map_token_sort_field, map_pool_sort_field, map_filter_params,
+    TOKEN_FILTER_PARAM_MAP,
+)
 from ..models.tokens import (
     TokenDetails, TokenSearchResponse, TokenPrice,
 )
-from ..models.pools import PoolsResponse
+from ..models.pools import PoolSearchResponse
 from ..utils.perf import track_perf
 
 
@@ -39,35 +43,49 @@ class TokensAPI(BaseAPI):
     
     @track_perf
     def get_pools(
-        self, 
-        network_id: str, 
-        token_address: str, 
-        page: int = 0, 
-        limit: int = 10, 
-        sort: str = "desc", 
+        self,
+        network_id: str,
+        token_address: str,
+        page: int = 0,
+        limit: int = 10,
+        sort: str = "desc",
         order_by: str = "volume_usd",
         address: Optional[str] = None,
         reorder: Optional[bool] = None,
-    ) -> PoolsResponse:
+        cursor: Optional[str] = None,
+    ) -> PoolSearchResponse:
         """
-        Get a list of top liquidity pools for a specific token on a network.
-        
+        Get a list of top liquidity pools that contain a specific token on a network.
+
+        Backed by /networks/{network}/pools/search with its token_address
+        parameter (the old /tokens/{address}/pools endpoint was removed, HTTP
+        410). The filter is network-scoped only: the cross-network /pools/search
+        endpoint accepts token_address but silently ignores it, so a network is
+        always required here. An unknown token address returns an empty result
+        set, not an error.
+
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
             token_address: Token address or identifier
-            page: Page number for pagination
-            limit: Number of items per page
+            page: Accepted for backward compatibility. The search endpoint is
+                cursor-paginated, so this value is ignored for the request.
+            limit: Number of items per page (max 100)
             sort: Sort order ("asc" or "desc")
-            order_by: Field to order by ("volume_usd", "price_usd", "transactions", 
-                     "last_price_change_usd_24h", "created_at")
-            address: Filter pools that contain this additional token address
-            reorder: If true, reorders the pool so that the specified token becomes 
-                    the primary token for all metrics and calculations. Useful when 
-                    the provided token is not the first token in the pool.
-            
+            order_by: Field to order by (legacy values such as "volume_usd" are
+                mapped to canonical search fields automatically)
+            address: Deprecated and ignored. The removed endpoint could filter
+                by a second token (pair queries); /pools/search has no
+                equivalent and repeating token_address is last-wins on the API
+                side, not a pair filter. Filter the returned pools client-side
+                to match a pair.
+            reorder: Deprecated and ignored. The removed endpoint could flip
+                the pool's pair perspective; /pools/search has no equivalent.
+            cursor: Cursor for cursor-based pagination (from next_cursor)
+
         Returns:
-            Response containing a list of pools for the given token
-            
+            Cursor-paginated pool search response restricted to pools that
+            contain the token
+
         Raises:
             ValueError: If any parameter is invalid
         """
@@ -77,24 +95,39 @@ class TokensAPI(BaseAPI):
         self._validate_range("page", page, min_val=0)
         self._validate_range("limit", limit, min_val=1, max_val=100)
         self._validate_enum("sort", sort, self.VALID_SORT_VALUES)
-        self._validate_enum("order_by", order_by, self.VALID_ORDER_BY_VALUES)
-        
+
+        if address is not None:
+            warnings.warn(
+                "The 'address' parameter of tokens.get_pools() is deprecated and "
+                "ignored: /pools/search has no pair filter. Filter the returned "
+                "pools client-side to match a pair.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if reorder is not None:
+            warnings.warn(
+                "The 'reorder' parameter of tokens.get_pools() is deprecated and "
+                "ignored: /pools/search has no equivalent.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         params = {
-            "page": page,
+            "token_address": token_address,
             "limit": limit,
             "sort": sort,
-            "order_by": order_by,
-            "address": address,
-            "reorder": reorder,
+            "order_by": map_pool_sort_field(order_by),
+            "cursor": cursor,
         }
         params = self._clean_params(params)
-        
-        data = self._get(f"/networks/{network_id}/tokens/{token_address}/pools", params=params)
 
-        # ensure pools exists
-        if 'pools' not in data: data['pools'] = []
+        data = self._get(f"/networks/{network_id}/pools/search", params=params)
 
-        return PoolsResponse(**data)
+        # ensure results exists
+        if 'results' not in data:
+            data['results'] = []
+
+        return PoolSearchResponse(**data)
 
     @track_perf
     def get_top(
