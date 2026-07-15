@@ -33,6 +33,35 @@ cd dexpaprika-sdk-python
 pip install -e .
 ```
 
+## Migration Guide (v0.6.0)
+
+**Important:** DexPaprika removed `GET /networks/{network}/tokens/{address}/pools`
+(it now returns `410 Gone`). `tokens.get_pools()` was repointed to
+`/networks/{network}/pools/search` with its new `token_address` parameter:
+
+- The method signature is unchanged; the response is now the cursor-paginated
+  search shape (rows under `results`, `.pools` remains a backward-compatible
+  alias). `page` is accepted but ignored; pass `cursor=...` to page.
+- The token filter is network-scoped only. The cross-network `/pools/search`
+  endpoint accepts `token_address` but silently ignores it, so `get_pools()`
+  still requires a network.
+- The `address` (pair queries) and `reorder` (pair-perspective flip) parameters
+  have no `/pools/search` equivalent. They are deprecated, warn, and are not
+  sent. Repeating `token_address` on the API side is last-wins, not a pair
+  filter, so filter the returned pools client-side to match a pair.
+- An unknown token address returns an empty result set, not an error.
+
+```python
+pools = client.tokens.get_pools("ethereum", "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", limit=5)
+for p in pools.results:
+    print(p.id, p.volume_usd_24h)
+if pools.has_next_page:
+    more = client.tokens.get_pools(
+        "ethereum", "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        limit=5, cursor=pools.next_cursor,
+    )
+```
+
 ## Migration Guide (v0.5.0)
 
 **Important:** DexPaprika removed four REST endpoints (they now return `410 Gone`)
@@ -89,19 +118,6 @@ pools = client.pools.list(limit=10)
 # Use network-specific methods instead
 eth_pools = client.pools.list_by_network("ethereum", limit=10)
 solana_pools = client.pools.list_by_network("solana", limit=10)
-```
-
-### New Token Pools Features
-
-The `tokens.get_pools()` method now supports a new `reorder` parameter:
-
-```python
-# Reorder pools so the specified token becomes primary for all metrics
-pools = client.tokens.get_pools(
-    network_id="ethereum",
-    token_address="0xa0b86a33e6441b8466395bf92e8aa0cb53ad20aa",  # USDC
-    reorder=True  # Makes USDC the primary token for calculations
-)
 ```
 
 ### Backward Compatibility

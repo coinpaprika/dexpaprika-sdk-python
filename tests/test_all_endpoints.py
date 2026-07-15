@@ -131,24 +131,52 @@ def test_tokens_get_details(client, test_data):
     assert hasattr(token_details, 'symbol')
 
 def test_tokens_get_pools(client, test_data):
+    """tokens.get_pools targets /pools/search with token_address: every
+    returned pool must contain the requested token and pagination is
+    cursor-based."""
     token_pools = client.tokens.get_pools(
-        test_data["test_pool_network"], 
-        test_data["test_token_address"], 
+        test_data["test_pool_network"],
+        test_data["test_token_address"],
         limit=5
     )
     assert token_pools is not None
-    assert hasattr(token_pools, 'pools')
+    assert hasattr(token_pools, 'results')
+    assert len(token_pools.pools) > 0  # backward-compatible alias for results
+    for pool in token_pools.pools:
+        token_ids = [t.id for t in pool.tokens]
+        assert test_data["test_token_address"] in token_ids
 
-def test_tokens_get_pools_with_reorder(client, test_data):
-    """Test the tokens.get_pools method with the new reorder parameter."""
-    token_pools = client.tokens.get_pools(
-        test_data["test_pool_network"], 
-        test_data["test_token_address"], 
-        limit=5,
-        reorder=True
-    )
+    # Follow the cursor to the next page
+    if token_pools.has_next_page and token_pools.next_cursor:
+        next_page = client.tokens.get_pools(
+            test_data["test_pool_network"],
+            test_data["test_token_address"],
+            limit=5,
+            cursor=token_pools.next_cursor
+        )
+        assert next_page is not None
+        assert len(next_page.results) > 0
+        assert next_page.results[0].id != token_pools.results[0].id
+
+def test_tokens_get_pools_deprecated_params(client, test_data):
+    """The removed endpoint's pair filter (address) and reorder options have
+    no /pools/search equivalent: they must warn and be ignored, not sent."""
+    import warnings
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        token_pools = client.tokens.get_pools(
+            test_data["test_pool_network"],
+            test_data["test_token_address"],
+            limit=5,
+            address="0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            reorder=True
+        )
+        assert any(issubclass(w.category, DeprecationWarning) for w in caught)
     assert token_pools is not None
-    assert hasattr(token_pools, 'pools')
+    # The call still succeeds and still filters by the primary token
+    for pool in token_pools.pools:
+        token_ids = [t.id for t in pool.tokens]
+        assert test_data["test_token_address"] in token_ids
 
 # Pool Filter API tests
 def test_pools_filter(client, test_data):
@@ -319,7 +347,7 @@ if __name__ == "__main__":
         test_pools_filter_multiple_params,
         test_tokens_get_details,
         test_tokens_get_pools,
-        test_tokens_get_pools_with_reorder,
+        test_tokens_get_pools_deprecated_params,
         test_tokens_get_top,
         test_tokens_get_top_with_sort,
         test_tokens_filter,

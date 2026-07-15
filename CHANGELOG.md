@@ -5,6 +5,29 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-15
+
+### Breaking Changes
+- **API endpoint removed (410 Gone)**: `GET /networks/{network}/tokens/{address}/pools`
+  was removed by DexPaprika. `tokens.get_pools()` now calls the unified
+  `/networks/{network}/pools/search` endpoint with its new `token_address`
+  parameter. The method signature is unchanged.
+- **Response shape changed**: `tokens.get_pools()` now returns the
+  cursor-paginated `PoolSearchResponse` (rows under `results` plus
+  `has_next_page` / `next_cursor`; `.pools` remains a backward-compatible alias
+  for `.results`). `page` is accepted but ignored; pass `cursor=...` to page.
+- **Network-scoped only**: the cross-network `/pools/search` endpoint accepts
+  `token_address` but silently ignores it, so `get_pools()` still requires a
+  network.
+- **Deprecated parameters**: `address` (pair queries) and `reorder`
+  (pair-perspective flip) have no `/pools/search` equivalent. They now emit a
+  `DeprecationWarning` and are not sent; repeating `token_address` on the API
+  side is last-wins, not a pair filter. Filter the returned pools client-side
+  to match a pair.
+- Legacy `order_by` values (such as `volume_usd`) are mapped to the canonical
+  search names automatically; an unknown token address returns an empty result
+  set, not an error.
+
 ## [0.5.1] - 2026-07-01
 
 ### Added
