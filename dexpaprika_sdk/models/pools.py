@@ -124,11 +124,16 @@ class TransactionsResponse(PaginatedResponse[Transaction]):
 class PoolSearchToken(BaseModel):
     """Lightweight token reference returned inside /pools/search results.
 
-    The search endpoint only returns id, name and symbol per token (not the full
-    Token model used by the still-valid list/detail endpoints).
+    Read off the wire on 2026-08-05: each entry carries ``id``, ``chain`` and
+    ``has_image`` only. It is not the full Token model used by the pool detail
+    endpoint. ``name`` and ``symbol`` are kept as optional fields for callers
+    written against older responses; they come back as None today, so resolve
+    symbols with ``client.tokens.get_details(chain, id)`` when you need them.
     """
 
     id: str = Field(...)
+    chain: Optional[str] = Field(None)
+    has_image: Optional[bool] = Field(None)
     name: Optional[str] = Field(None)
     symbol: Optional[str] = Field(None)
 
@@ -157,6 +162,7 @@ class PoolSearchResult(BaseModel):
     price_usd: Optional[float] = Field(None)
     price_change_percentage_5m: Optional[float] = Field(None)
     price_change_percentage_1h: Optional[float] = Field(None)
+    price_change_percentage_6h: Optional[float] = Field(None)
     price_change_percentage_24h: Optional[float] = Field(None)
     tokens: List[PoolSearchToken] = Field(default_factory=list)
 

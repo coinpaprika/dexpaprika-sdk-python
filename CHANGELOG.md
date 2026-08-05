@@ -5,6 +5,34 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-05
+
+### Breaking Changes
+- **API endpoint removed (410 Gone)**: `GET /networks/{network}/dexes/{dex}/pools`
+  was removed by DexPaprika. `pools.list_by_dex()` now calls
+  `/networks/{network}/pools/search` with the `dex_name` filter. The `dex_id`
+  argument is unchanged and is sent as `dex_name`, which resolves both the id
+  (`curve`) and the display name (`Curve`).
+- **Response shape changed**: `pools.list_by_dex()` now returns the
+  cursor-paginated `PoolSearchResponse` (rows under `results` plus
+  `has_next_page` / `next_cursor`; `.pools` remains a backward-compatible alias
+  for `.results`). There is no `page_info`. `page` is accepted but ignored;
+  pass `cursor=...` to page.
+- **Field renames on pool rows**: the 24h volume is `volume_usd_24h`, not
+  `volume_usd`, and the transaction count is `transactions_24h`, not
+  `transactions`.
+- `order_by` is no longer validated against `VALID_ORDER_BY_VALUES` on
+  `list_by_dex`. Legacy values such as `volume_usd` are mapped to the canonical
+  search fields, so canonical names like `liquidity_usd` now work too.
+
+### Fixed
+- `PoolSearchToken` matches the wire: tokens inside a search result carry `id`,
+  `chain` and `has_image`. `name` and `symbol` are kept as optional fields and
+  come back as None.
+- Added the missing `price_change_percentage_6h` field to `PoolSearchResult`.
+- The `advanced_example.py` DEX section printed `None/None` pairs and a missing
+  `volume_usd`. It now labels pools by token id when no symbol is returned.
+
 ## [0.6.0] - 2026-07-15
 
 ### Breaking Changes

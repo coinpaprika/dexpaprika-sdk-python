@@ -84,13 +84,28 @@ def test_dexes_list(client, test_data):
     assert hasattr(dexes_response, 'dexes')
 
 def test_pools_list_by_dex(client, test_data):
+    """list_by_dex now runs on /pools/search with a dex_name filter.
+
+    The dedicated /networks/{network}/dexes/{dex}/pools endpoint returns 410.
+    """
     pools_response = client.pools.list_by_dex(
-        test_data["ethereum_network"], 
-        test_data["test_dex"], 
+        test_data["ethereum_network"],
+        test_data["test_dex"],
         limit=5
     )
     assert pools_response is not None
-    assert hasattr(pools_response, 'pools')
+    assert hasattr(pools_response, 'results')
+    assert hasattr(pools_response, 'has_next_page')
+    # `pools` remains as a backward-compatible alias for `results`
+    assert pools_response.pools == pools_response.results
+    assert len(pools_response.results) > 0
+    # Every row must come from the requested DEX. An unfiltered ethereum search
+    # leads with other DEXes, so this fails if dex_name stops binding.
+    assert all(p.dex_id == test_data["test_dex"] for p in pools_response.results)
+    # New search item shape: pool address under `id`, timeframe-split volume
+    pool = pools_response.results[0]
+    assert hasattr(pool, 'volume_usd_24h')
+    assert not hasattr(pool, 'volume_usd')
 
 def test_pools_get_details(client, test_data):
     pool_details = client.pools.get_details(

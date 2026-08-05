@@ -13,6 +13,7 @@ from dexpaprika_sdk import DexPaprikaClient
 from dexpaprika_sdk.models import (
     Network, Dex, DexesResponse,
     Token, Pool, PoolsResponse, TimeIntervalMetrics,
+    PoolSearchResponse, PoolSearchResult, PoolSearchToken,
     PoolDetails, OHLCVRecord, Transaction, TransactionsResponse,
     TokenSummary, TokenDetails,
     DexInfo, SearchResult,
@@ -81,10 +82,38 @@ def create_mock_client():
         pools=[pool],
         page_info=None
     )
-    
-    client.pools.list = MagicMock(return_value=pools_response)
-    client.pools.list_by_network = MagicMock(return_value=pools_response)
-    client.pools.list_by_dex = MagicMock(return_value=pools_response)
+
+    # /pools/search shape, copied from a live response captured 2026-08-05.
+    # Rows sit under `results` with has_next_page / next_cursor. There is no
+    # bare volume_usd and no page_info, so do not reuse `pools_response` here.
+    search_response = PoolSearchResponse(
+        results=[
+            PoolSearchResult(
+                id="0x4f493b7de8aac7d55f71853688b1f7c8f0243c85",
+                dex_id="curve",
+                dex_name="Curve",
+                chain="ethereum",
+                volume_usd_24h=15883391.558251368,
+                volume_usd_7d=31781851.73428885,
+                volume_usd_30d=136889876.39037386,
+                liquidity_usd=7407910.088430515,
+                transactions_24h=289,
+                price_usd=0.9995787501356217,
+                created_at="2025-01-25T17:20:47Z",
+                created_at_block_number=21702976,
+                tokens=[
+                    PoolSearchToken(id="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", chain="ethereum", has_image=True),
+                    PoolSearchToken(id="0xdac17f958d2ee523a2206206994597c13d831ec7", chain="ethereum", has_image=True),
+                ],
+            )
+        ],
+        has_next_page=True,
+        next_cursor="eyJjaGFpbiI6ImV0aGVyZXVtIn0",
+    )
+
+    client.pools.list = MagicMock(return_value=search_response)
+    client.pools.list_by_network = MagicMock(return_value=search_response)
+    client.pools.list_by_dex = MagicMock(return_value=search_response)
     
     # Mock Pool Details
     time_metrics = TimeIntervalMetrics(

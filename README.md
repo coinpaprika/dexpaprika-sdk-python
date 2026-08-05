@@ -33,6 +33,43 @@ cd dexpaprika-sdk-python
 pip install -e .
 ```
 
+## Migration Guide (v0.7.0)
+
+**Important:** DexPaprika removed `GET /networks/{network}/dexes/{dex}/pools`
+(it now returns `410 Gone`). `pools.list_by_dex()` was repointed to
+`/networks/{network}/pools/search` with a `dex_name` filter:
+
+- The method signature is unchanged apart from a new optional `cursor`. The
+  `dex_id` argument is now sent as the `dex_name` query parameter, which
+  resolves both the id (`curve`) and the display name (`Curve`). Prefer the id.
+- The response is the cursor-paginated search shape (rows under `results`,
+  `.pools` remains a backward-compatible alias). `page` is accepted but ignored;
+  pass `cursor=...` to page.
+- Pool items no longer carry a bare `volume_usd`. The 24h figure is
+  `volume_usd_24h`, alongside `volume_usd_7d` and `volume_usd_30d`. There is no
+  `page_info` on the response.
+- `order_by="volume_usd"` keeps working and is mapped to `volume_usd_24h`. The
+  strict `order_by` enum check was dropped so canonical search fields such as
+  `liquidity_usd` are accepted too.
+- Tokens inside a search result carry `id`, `chain` and `has_image` only. Call
+  `client.tokens.get_details(chain, id)` if you need names or symbols.
+
+```python
+# Before:
+pools = client.pools.list_by_dex("ethereum", "uniswap_v3", limit=5)
+for p in pools.pools:
+    print(p.volume_usd)
+
+# After:
+pools = client.pools.list_by_dex("ethereum", "uniswap_v3", limit=5)
+for p in pools.results:          # .pools still works as an alias
+    print(p.id, p.volume_usd_24h)
+if pools.has_next_page:
+    more = client.pools.list_by_dex(
+        "ethereum", "uniswap_v3", limit=5, cursor=pools.next_cursor,
+    )
+```
+
 ## Migration Guide (v0.6.0)
 
 **Important:** DexPaprika removed `GET /networks/{network}/tokens/{address}/pools`
@@ -178,14 +215,27 @@ eth_pools = client.pools.list_by_network(
 #### Get pools for a specific DEX
 
 ```python
-# Get top Uniswap V3 pools on Ethereum
+# Get top Uniswap V3 pools on Ethereum.
+# Backed by /networks/{network}/pools/search with a dex_name filter; the
+# dedicated /dexes/{dex}/pools endpoint was removed and returns 410 Gone.
 uniswap_pools = client.pools.list_by_dex(
-    network_id="ethereum", 
-    dex_id="uniswap_v3", 
-    limit=5, 
-    order_by="volume_usd", 
+    network_id="ethereum",
+    dex_id="uniswap_v3",
+    limit=5,
+    order_by="volume_usd_24h",
     sort="desc"
 )
+for pool in uniswap_pools.results:
+    print(pool.id, pool.dex_id, pool.volume_usd_24h)
+
+# Rows are under `results`; pagination is cursor-based (has_next_page / next_cursor)
+if uniswap_pools.has_next_page:
+    next_page = client.pools.list_by_dex(
+        network_id="ethereum",
+        dex_id="uniswap_v3",
+        limit=5,
+        cursor=uniswap_pools.next_cursor,
+    )
 ```
 
 #### Get details for a specific pool
