@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from dexpaprika_sdk import DexPaprikaClient
 from dexpaprika_sdk.models import (
-    Network, Dex, DexesResponse,
+    Network, Dex, DexesResponse, PageInfo,
     Token, Pool, PoolsResponse, TimeIntervalMetrics,
     PoolSearchResponse, PoolSearchResult, PoolSearchToken,
     PoolDetails, OHLCVRecord, Transaction, TransactionsResponse,
@@ -55,8 +55,13 @@ def create_mock_client():
     networks = [Network(id="ethereum", display_name="Ethereum")]
     client.networks.list = MagicMock(return_value=networks)
     
+    # Field names follow GET /networks/{network}/dexes: the identifier is
+    # dex_id, and dex_name is the display name.
     dexes_response = DexesResponse(
-        dexes=[Dex(id="uniswap_v3", name="Uniswap V3", url="https://uniswap.org")]
+        dexes=[Dex(dex_id="uniswap_v3", dex_name="Uniswap V3", chain="ethereum",
+                   protocol="uniswapv3", volume_usd_24h=49828928.93,
+                   txns_24h=12345, pools_count=678)],
+        page_info=PageInfo(limit=10, page=1, total_items=1, total_pages=1),
     )
     client.networks.list_dexes = MagicMock(return_value=dexes_response)
     client.dexes.list = MagicMock(return_value=dexes_response)
