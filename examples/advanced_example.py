@@ -94,12 +94,14 @@ def main():
     
     # Get pools for a specific DEX
     if dexes and dexes.dexes:
-        dex_id = dexes.dexes[0].id
+        dex_id = dexes.dexes[0].dex_id
         dex_name = dexes.dexes[0].dex_name
         print(f"Getting top pools for {dex_name}...")
         try:
             # dex_id is sent as the dex_name query param on /pools/search;
             # the /dexes/{dex}/pools endpoint was removed and returns 410 Gone.
+            # Pass dex_id ("uniswap_v3"), never dex_name ("Uniswap V3"): the
+            # filter matches the id, and a display name comes back empty.
             dex_pools = client.pools.list_by_dex(
                 network_id=network_id,
                 dex_id=dex_id,

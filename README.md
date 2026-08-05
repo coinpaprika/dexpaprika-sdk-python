@@ -40,8 +40,11 @@ pip install -e .
 `/networks/{network}/pools/search` with a `dex_name` filter:
 
 - The method signature is unchanged apart from a new optional `cursor`. The
-  `dex_id` argument is now sent as the `dex_name` query parameter, which
-  resolves both the id (`curve`) and the display name (`Curve`). Prefer the id.
+  `dex_id` argument is now sent as the `dex_name` query parameter. Despite that
+  parameter's name it matches the DEX **id** from `GET /networks/{network}/dexes`
+  (the `dex_id` field), case-insensitively. Passing that response's `dex_name`
+  field instead, a human display name such as `Uniswap V3`, returns HTTP 200 with
+  an empty result set rather than an error, so always pass the id.
 - The response is the cursor-paginated search shape (rows under `results`,
   `.pools` remains a backward-compatible alias). `page` is accepted but ignored;
   pass `cursor=...` to page.

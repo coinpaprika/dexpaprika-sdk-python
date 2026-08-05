@@ -11,8 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **API endpoint removed (410 Gone)**: `GET /networks/{network}/dexes/{dex}/pools`
   was removed by DexPaprika. `pools.list_by_dex()` now calls
   `/networks/{network}/pools/search` with the `dex_name` filter. The `dex_id`
-  argument is unchanged and is sent as `dex_name`, which resolves both the id
-  (`curve`) and the display name (`Curve`).
+  argument is unchanged and is sent as `dex_name`. Despite the parameter name,
+  that filter matches the DEX id (`curve`, `uniswap_v3`) case-insensitively. A
+  display name such as `Uniswap V3` returns an empty result set instead of an
+  error, so pass the `dex_id` field from `GET /networks/{network}/dexes`.
 - **Response shape changed**: `pools.list_by_dex()` now returns the
   cursor-paginated `PoolSearchResponse` (rows under `results` plus
   `has_next_page` / `next_cursor`; `.pools` remains a backward-compatible alias
@@ -32,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added the missing `price_change_percentage_6h` field to `PoolSearchResult`.
 - The `advanced_example.py` DEX section printed `None/None` pairs and a missing
   `volume_usd`. It now labels pools by token id when no symbol is returned.
+- The `Dex` model declared the identifier as `id`, but
+  `GET /networks/{network}/dexes` returns it as `dex_id`. Every `Dex.id` was
+  therefore `None` and the real value was dropped. The field is now `dex_id`,
+  and `Dex.id` stays as a read-only alias that returns it. The model also picked
+  up `volume_usd_24h`, `txns_24h` and `pools_count`, which the wire has always
+  sent and the model silently discarded.
+- `advanced_example.py` read `dexes.dexes[0].id`, which was `None`, so
+  `list_by_dex()` raised "dex_id is required" before it could make a request.
+  It now reads `dex_id`.
 
 ## [0.6.0] - 2026-07-15
 

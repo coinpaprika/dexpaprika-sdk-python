@@ -144,9 +144,12 @@ class PoolsAPI(BaseAPI):
 
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
-            dex_id: DEX ID (e.g., "uniswap_v3"). Sent as the ``dex_name`` query
-                parameter, which resolves both the id ("curve") and the display
-                name ("Curve"). Prefer the id.
+            dex_id: DEX ID from GET /networks/{network}/dexes, the ``dex_id``
+                field (e.g., "uniswap_v3"). Sent as the ``dex_name`` query
+                parameter, which matches the id case-insensitively. Passing
+                that response's ``dex_name`` field instead, a display name such
+                as "Uniswap V3", returns an empty result set rather than an
+                error, so always pass the id.
             page: Accepted for backward compatibility. The search endpoint is
                 cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page
