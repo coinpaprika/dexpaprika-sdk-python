@@ -9,7 +9,7 @@ A Python client for the DexPaprika API. This SDK provides easy access to real-ti
 
 ## Features
 
-- Access data from 36+ blockchain networks
+- Access data from 36 blockchain networks
 - Query information about DEXes, liquidity pools, and tokens
 - Get detailed price information, trading volume, and transactions
 - **Filter pools and tokens** by volume, liquidity, FDV, transactions, and creation date
