@@ -83,14 +83,28 @@ def test_dexes_list(client, test_data):
     assert dexes_response is not None
     assert hasattr(dexes_response, 'dexes')
 
-def test_pools_list_by_dex(client, test_data):
-    pools_response = client.pools.list_by_dex(
-        test_data["ethereum_network"], 
-        test_data["test_dex"], 
-        limit=5
-    )
-    assert pools_response is not None
-    assert hasattr(pools_response, 'pools')
+def test_pools_list_by_dex_is_gone(client, test_data):
+    """The per-DEX pool listing was removed from the API and answers 410.
+
+    This test used to assert a successful response. It started failing on main
+    with no code change on our side, once /networks/{network}/dexes/{dex}/pools
+    began returning 410. The SDK behaviour is right: it raises
+    DeprecatedEndpointError and carries the replacement path through, so a
+    caller finds out where to go instead of getting an opaque HTTP error. What
+    was stale was the expectation.
+    """
+    from dexpaprika_sdk.exceptions import DeprecatedEndpointError
+
+    with pytest.raises(DeprecatedEndpointError) as excinfo:
+        client.pools.list_by_dex(
+            test_data["ethereum_network"],
+            test_data["test_dex"],
+            limit=5
+        )
+
+    # The replacement is the useful part of this exception, so pin it rather
+    # than just the type.
+    assert "pools/search" in excinfo.value.replacement
 
 def test_pools_get_details(client, test_data):
     pool_details = client.pools.get_details(
