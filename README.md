@@ -82,7 +82,7 @@ canonical ones automatically). What changed is the response shape:
   but is ignored; pass `cursor=...` to page through results.
 - Pool items: `id` is the pool address, volume is split into
   `volume_usd_24h` / `volume_usd_7d` / `volume_usd_30d`, transactions are
-  `transactions_24h`, and price moves are `price_change_percentage_5m/1h/24h`.
+  `transactions_24h`, and price moves are `price_change_percentage_5m/1h/6h/24h`.
 - Token items are flat and identified by `address` (no `name`/`symbol`, no nested
   time-interval objects): `price_usd`, `volume_usd_24h/7d/30d`, `liquidity_usd`,
   `fdv_usd`, `txns_24h`, `price_change_percentage_24h`.
@@ -232,6 +232,53 @@ for pool in filtered.results:
     token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown"
     print(f"- {token_pair}: ${pool.volume_usd_24h or 0:,.0f} volume")
 ```
+
+#### Sort and filter pools by price move
+
+Pools can be sorted and filtered on four price-change windows: `24h`, `6h`, `1h`
+and `5m`. Pass the window to `sort_by` / `order_by`, or bound it with the
+matching `_min` / `_max` filter.
+
+```python
+# Biggest 5-minute movers on Ethereum
+movers = client.pools.list_by_network(
+    network_id="ethereum",
+    order_by="price_change_percentage_5m",
+    sort="desc",
+    limit=10
+)
+for pool in movers.results:
+    print(f"- {pool.id}: {pool.price_change_percentage_5m or 0:+.2f}% in 5m")
+
+# Pools down at least 20% on the day, with real liquidity behind them.
+# Bounds are percentages, so a drop is a negative *_max.
+dumping = client.pools.filter(
+    network_id="ethereum",
+    price_change_percentage_24h_max=-20,
+    liquidity_usd_min=50000,
+    limit=10
+)
+for pool in dumping.results:
+    print(f"- {pool.id}: {pool.price_change_percentage_24h or 0:.2f}% 24h")
+
+# Combine bounds to find a short spike that has not yet shown up in the day
+spiking = client.pools.filter(
+    network_id="ethereum",
+    price_change_percentage_1h_min=50,
+    price_change_percentage_24h_max=10,
+    limit=10
+)
+```
+
+Available bounds: `price_change_percentage_24h_min` / `_max`,
+`price_change_percentage_6h_min` / `_max`, `price_change_percentage_1h_min` /
+`_max`, `price_change_percentage_5m_min` / `_max`.
+
+These windows are pool-only. `tokens.get_top()` and `tokens.filter()` support
+`price_change_percentage_24h` and nothing shorter, because
+`/networks/{network}/tokens/search` rejects the shorter windows and token rows
+carry no 5m field. A pool-only window handed to a token method falls back to
+`volume_usd_24h` rather than failing.
 
 #### Get top tokens on a network
 

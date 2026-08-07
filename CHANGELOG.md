@@ -5,6 +5,32 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-07
+
+### Added
+- **Short price-change windows on pools**: `/networks/{network}/pools/search`
+  now accepts `price_change_percentage_6h`, `price_change_percentage_1h` and
+  `price_change_percentage_5m` as `order_by` values. All three were added to
+  `POOL_SORT_CANONICAL`, so `pools.list_by_network()` and `pools.filter()` pass
+  them through instead of silently falling back to `volume_usd_24h`.
+- **Price-change bounds on `pools.filter()`**: eight new keyword arguments,
+  `price_change_percentage_{24h,6h,1h,5m}_{min,max}`. The 24h pair was missing
+  as well, so all four windows are now filterable. Values are percentages and
+  negatives are meaningful: `price_change_percentage_24h_max=-20` selects pools
+  down at least 20% on the day.
+- **`PoolSearchResult.price_change_percentage_6h`**: the search endpoint returns
+  this field and the model was dropping it.
+
+### Notes
+- These windows are pool-only. `/networks/{network}/tokens/search` returns HTTP
+  400 for them and token rows carry no 5m field, so `TOKEN_SORT_CANONICAL` is
+  deliberately left without them. A pool-only window passed to a token method
+  falls back to `volume_usd_24h`. A regression test pins that asymmetry.
+- An unknown filter param is ignored by the API, which still answers 200 with a
+  full unfiltered result set, so a typo in a bound would look like a working
+  call returning the wrong pools. The new tests assert against the API's own
+  `query` echo, which lists only the parameters it recognised.
+
 ## [0.6.0] - 2026-07-15
 
 ### Breaking Changes

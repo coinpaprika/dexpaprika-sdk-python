@@ -264,5 +264,114 @@ class TestDeprecationHandling(unittest.TestCase):
                 self.client.get("/pools")
 
 
+class TestPriceChangeWindowParams(unittest.TestCase):
+    """Test suite for the pool price-change sort fields and filter bounds.
+
+    These assert on the params handed to the transport rather than on a live
+    response. The API ignores an unknown filter param and still answers 200 with
+    a full unfiltered result set, so a bound that never reaches the wire cannot
+    be caught by inspecting the rows. pools.filter() enumerates every bound
+    explicitly, which means a single typo silently drops one.
+    """
+
+    WINDOWS = ["24h", "6h", "1h", "5m"]
+
+    def setUp(self):
+        """Set up test environment."""
+        self.client = DexPaprikaClient()
+
+    def _capture_params(self, call):
+        """Run ``call`` against a stubbed transport and return the sent params.
+
+        The cache is cleared first: repeated calls that fall back to the same
+        canonical params would otherwise be served from cache and never reach
+        the transport, leaving nothing to assert on.
+        """
+        self.client.clear_cache()
+        with patch('requests.Session.request') as mock_request:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.content = b'{"results": []}'
+            mock_response.json.return_value = {"results": []}
+            mock_request.return_value = mock_response
+
+            call()
+            return mock_request.call_args.kwargs["params"]
+
+    def test_every_filter_bound_reaches_the_wire(self):
+        """All eight min/max bounds must be sent under their canonical names."""
+        for window in self.WINDOWS:
+            for bound in ("min", "max"):
+                name = f"price_change_percentage_{window}_{bound}"
+                # A distinct value per bound: a copy-paste slip that wires two
+                # arguments to the same key shows up as a wrong value, not just
+                # a missing one.
+                value = -12.5 if bound == "max" else 7.5
+                params = self._capture_params(
+                    lambda: self.client.pools.filter("ethereum", **{name: value})
+                )
+                self.assertIn(name, params, f"{name} never reached the request")
+                self.assertEqual(params[name], value, name)
+
+    def test_negative_bounds_are_preserved(self):
+        """A negative bound is the normal case: max=-20 means down at least 20%."""
+        params = self._capture_params(
+            lambda: self.client.pools.filter(
+                "ethereum", price_change_percentage_24h_max=-20
+            )
+        )
+        self.assertEqual(params["price_change_percentage_24h_max"], -20)
+
+    def test_zero_bound_is_not_dropped(self):
+        """0 is a meaningful bound (any pool that is up) and must survive
+        the None-stripping in _clean_params."""
+        params = self._capture_params(
+            lambda: self.client.pools.filter(
+                "ethereum", price_change_percentage_1h_min=0
+            )
+        )
+        self.assertEqual(params["price_change_percentage_1h_min"], 0)
+
+    def test_pool_sort_windows_pass_through(self):
+        """The short windows must survive canonical mapping on the pool side.
+
+        An unmapped sort field falls back to volume_usd_24h before the request
+        is built, so the failure mode is a 200 sorted by the wrong column.
+        """
+        for window in ("6h", "1h", "5m"):
+            field = f"price_change_percentage_{window}"
+            params = self._capture_params(
+                lambda: self.client.pools.list_by_network("ethereum", order_by=field)
+            )
+            self.assertEqual(params["order_by"], field)
+
+    def test_short_windows_never_reach_the_token_endpoint(self):
+        """Pool-only windows must fall back rather than be forwarded to tokens.
+
+        /networks/{network}/tokens/search returns 400 for the short windows and
+        token rows carry no 5m field. Forwarding one would turn a working call
+        into an error.
+        """
+        for window in ("6h", "1h", "5m"):
+            field = f"price_change_percentage_{window}"
+            params = self._capture_params(
+                lambda: self.client.tokens.get_top("ethereum", order_by=field)
+            )
+            self.assertEqual(params["order_by"], "volume_usd_24h")
+
+    def test_token_filter_has_no_price_change_bounds(self):
+        """Pin the asymmetry so a later sweep does not add these to tokens."""
+        import inspect
+
+        token_args = inspect.signature(self.client.tokens.filter).parameters
+        pool_args = inspect.signature(self.client.pools.filter).parameters
+
+        for window in self.WINDOWS:
+            for bound in ("min", "max"):
+                name = f"price_change_percentage_{window}_{bound}"
+                self.assertIn(name, pool_args, f"pools.filter lost {name}")
+                self.assertNotIn(name, token_args, f"tokens.filter gained {name}")
+
+
 if __name__ == "__main__":
     unittest.main() 

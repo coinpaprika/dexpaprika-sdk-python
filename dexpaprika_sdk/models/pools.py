@@ -157,6 +157,7 @@ class PoolSearchResult(BaseModel):
     price_usd: Optional[float] = Field(None)
     price_change_percentage_5m: Optional[float] = Field(None)
     price_change_percentage_1h: Optional[float] = Field(None)
+    price_change_percentage_6h: Optional[float] = Field(None)
     price_change_percentage_24h: Optional[float] = Field(None)
     tokens: List[PoolSearchToken] = Field(default_factory=list)
 
