@@ -77,7 +77,14 @@ POOL_FILTER_PARAM_MAP: Dict[str, str] = {
 
 # Legacy filter param name -> canonical /tokens/search query param name.
 # Names not listed here (liquidity_usd_min, fdv_min, fdv_max, txns_24h_min,
-# created_after, created_before) are already canonical and pass through.
+# created_after, created_before, price_change_percentage_24h_min/_max) are
+# already canonical and pass through.
+#
+# The filter side does not mirror the sort side. /tokens/search applies
+# price_change_percentage_24h_min and _max. It answers 200 to the 6h, 1h and 5m
+# bounds and then ignores them, so a caller who passed one would get a full
+# unfiltered page that looks filtered. That is why tokens.filter() offers the
+# 24h pair and refuses the other three outright.
 TOKEN_FILTER_PARAM_MAP: Dict[str, str] = {
     "volume_24h_min": "volume_usd_24h_min",
     "volume_24h_max": "volume_usd_24h_max",

@@ -383,8 +383,9 @@ class PoolsAPI(BaseAPI):
             "txns_24h_min": txns_24h_min,
             "created_after": created_after,
             "created_before": created_before,
-            # Pool-only price-change windows. These names are already canonical,
-            # so they pass through map_filter_params untouched.
+            # Price-change windows. These names are already canonical, so they
+            # pass through map_filter_params untouched. The 24h pair also works
+            # on /tokens/search; the 6h, 1h and 5m bounds are pool-only.
             "price_change_percentage_24h_min": price_change_percentage_24h_min,
             "price_change_percentage_24h_max": price_change_percentage_24h_max,
             "price_change_percentage_6h_min": price_change_percentage_6h_min,

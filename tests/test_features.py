@@ -265,12 +265,12 @@ class TestDeprecationHandling(unittest.TestCase):
 
 
 class TestPriceChangeWindowParams(unittest.TestCase):
-    """Test suite for the pool price-change sort fields and filter bounds.
+    """Test suite for the price-change sort fields and filter bounds.
 
     These assert on the params handed to the transport rather than on a live
     response. The API ignores an unknown filter param and still answers 200 with
     a full unfiltered result set, so a bound that never reaches the wire cannot
-    be caught by inspecting the rows. pools.filter() enumerates every bound
+    be caught by inspecting the rows. Both filter methods enumerate every bound
     explicitly, which means a single typo silently drops one.
     """
 
@@ -359,8 +359,15 @@ class TestPriceChangeWindowParams(unittest.TestCase):
             )
             self.assertEqual(params["order_by"], "volume_usd_24h")
 
-    def test_token_filter_has_no_price_change_bounds(self):
-        """Pin the asymmetry so a later sweep does not add these to tokens."""
+    def test_token_filter_exposes_24h_bounds_only(self):
+        """Pin the real filter-side asymmetry between the two endpoints.
+
+        It is narrower than the sort-side one. /tokens/search applies
+        price_change_percentage_24h_min and _max, so tokens.filter() offers
+        them. It answers 200 to a 6h, 1h or 5m bound and then ignores it, so
+        those three stay off the signature: a caller who passes one gets a
+        TypeError instead of a full page that looks filtered.
+        """
         import inspect
 
         token_args = inspect.signature(self.client.tokens.filter).parameters
@@ -370,7 +377,25 @@ class TestPriceChangeWindowParams(unittest.TestCase):
             for bound in ("min", "max"):
                 name = f"price_change_percentage_{window}_{bound}"
                 self.assertIn(name, pool_args, f"pools.filter lost {name}")
-                self.assertNotIn(name, token_args, f"tokens.filter gained {name}")
+                if window == "24h":
+                    self.assertIn(name, token_args, f"tokens.filter lost {name}")
+                else:
+                    self.assertNotIn(name, token_args, f"tokens.filter gained {name}")
+
+    def test_token_filter_bounds_reach_the_wire(self):
+        """The token 24h bounds must be sent under their canonical names.
+
+        tokens.filter() enumerates its filters the same way pools.filter() does,
+        as an argument and again as a dict key, so a bound listed in one place
+        only never leaves the process.
+        """
+        for bound, value in (("min", 20), ("max", -30)):
+            name = f"price_change_percentage_24h_{bound}"
+            params = self._capture_params(
+                lambda: self.client.tokens.filter("ethereum", **{name: value})
+            )
+            self.assertIn(name, params, f"{name} never reached the request")
+            self.assertEqual(params[name], value, name)
 
 
 if __name__ == "__main__":
