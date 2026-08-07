@@ -83,14 +83,28 @@ def test_dexes_list(client, test_data):
     assert dexes_response is not None
     assert hasattr(dexes_response, 'dexes')
 
-def test_pools_list_by_dex(client, test_data):
-    pools_response = client.pools.list_by_dex(
-        test_data["ethereum_network"], 
-        test_data["test_dex"], 
-        limit=5
-    )
-    assert pools_response is not None
-    assert hasattr(pools_response, 'pools')
+def test_pools_list_by_dex_is_gone(client, test_data):
+    """The per-DEX pool listing was removed from the API and answers 410.
+
+    This test used to assert a successful response. It started failing on main
+    with no code change on our side, once /networks/{network}/dexes/{dex}/pools
+    began returning 410. The SDK behaviour is right: it raises
+    DeprecatedEndpointError and carries the replacement path through, so a
+    caller finds out where to go instead of getting an opaque HTTP error. What
+    was stale was the expectation.
+    """
+    from dexpaprika_sdk.exceptions import DeprecatedEndpointError
+
+    with pytest.raises(DeprecatedEndpointError) as excinfo:
+        client.pools.list_by_dex(
+            test_data["ethereum_network"],
+            test_data["test_dex"],
+            limit=5
+        )
+
+    # The replacement is the useful part of this exception, so pin it rather
+    # than just the type.
+    assert "pools/search" in excinfo.value.replacement
 
 def test_pools_get_details(client, test_data):
     pool_details = client.pools.get_details(
@@ -211,6 +225,200 @@ def test_pools_filter_multiple_params(client, test_data):
     )
     assert filtered is not None
     assert hasattr(filtered, 'results')
+
+# Price-change window tests
+#
+# The search endpoint echoes the parameters it recognised under `query`. That
+# echo is the only reliable proof these reached the wire: the SDK maps an
+# unknown sort field to volume_usd_24h before sending, and the API ignores an
+# unknown filter name and still answers 200 with a full result set. Both
+# failures look like a successful call returning the wrong pools.
+#
+# The three short windows below are the pool-only ones. The 24h window is not:
+# /tokens/search sorts and filters on it too.
+
+PRICE_CHANGE_WINDOWS = [
+    "price_change_percentage_6h",
+    "price_change_percentage_1h",
+    "price_change_percentage_5m",
+]
+
+
+def _measured_bound(client, network, field, sort_dir, rank=10):
+    """Read a live threshold off the endpoint instead of hardcoding one.
+
+    A fixed bound like 50% passes vacuously on a quiet hour: every row of an
+    empty result set satisfies the loop that checks it. So sort by the field,
+    take the value sitting at ``rank``, and halve it. At least ``rank`` pools
+    are then above the bound with room to spare, which turns an empty filtered
+    set back into a real failure.
+
+    Returns the bound and the ranked values it came from.
+    """
+    ranked = client.pools.list_by_network(
+        network, order_by=field, sort=sort_dir, limit=rank * 2
+    )
+    values = [
+        getattr(pool, field) for pool in ranked.results
+        if getattr(pool, field) is not None
+    ]
+    assert len(values) >= rank, f"only {len(values)} pools carry {field}"
+    return round(values[rank - 1] / 2, 4), values
+
+def test_pools_sort_by_price_change_windows(client, test_data):
+    """Each new pool sort window must survive the canonical mapping, and the
+    row must expose the value it was sorted on."""
+    for window in PRICE_CHANGE_WINDOWS:
+        pools = client.pools.list_by_network(
+            test_data["ethereum_network"], order_by=window, limit=5
+        )
+        assert pools.query is not None
+        # Not volume_usd_24h: that is what a missing canonical entry produces.
+        assert pools.query.get("order_by") == window, window
+        assert len(pools.results) > 0
+        assert getattr(pools.results[0], window) is not None, window
+
+def test_pools_filter_price_change_window(client, test_data):
+    """A price-change bound must narrow the result set, not just return 200."""
+    bound, ranked = _measured_bound(
+        client, test_data["ethereum_network"], "price_change_percentage_1h", "desc"
+    )
+    assert bound > 0, f"no 1h movers on ethereum right now: {ranked[:3]}"
+
+    filtered = client.pools.filter(
+        test_data["ethereum_network"],
+        price_change_percentage_1h_min=bound,
+        limit=10
+    )
+    assert filtered.query is not None
+    assert filtered.query.get("price_change_percentage_1h_min") == pytest.approx(bound)
+    # Ten pools were above this a moment ago, so an empty page is the bound
+    # failing, not a quiet market.
+    assert len(filtered.results) > 0, f"bound {bound} matched nothing"
+    for pool in filtered.results:
+        assert pool.price_change_percentage_1h is not None, pool.id
+        assert pool.price_change_percentage_1h >= bound
+
+    # Contrast against an unfiltered baseline. Top pools by volume sit near zero
+    # on the hour, so without the bound the same query serves rows below it.
+    baseline = client.pools.list_by_network(test_data["ethereum_network"], limit=10)
+    assert any(
+        p.price_change_percentage_1h is not None and p.price_change_percentage_1h < bound
+        for p in baseline.results
+    )
+
+def test_pools_filter_negative_price_change(client, test_data):
+    """Negative bounds are the point: a negative max selects pools that fell.
+
+    The threshold is measured off the ascending sort for the same reason as the
+    positive case, so the test does not depend on how bad a given day is.
+    """
+    bound, ranked = _measured_bound(
+        client, test_data["ethereum_network"], "price_change_percentage_24h", "asc"
+    )
+    assert bound < 0, f"nothing is down on ethereum right now: {ranked[:3]}"
+
+    filtered = client.pools.filter(
+        test_data["ethereum_network"],
+        price_change_percentage_24h_max=bound,
+        limit=10
+    )
+    assert filtered.query is not None
+    assert filtered.query.get("price_change_percentage_24h_max") == pytest.approx(bound)
+    assert len(filtered.results) > 0, f"bound {bound} matched nothing"
+    for pool in filtered.results:
+        assert pool.price_change_percentage_24h is not None, pool.id
+        assert pool.price_change_percentage_24h <= bound
+
+    baseline = client.pools.list_by_network(test_data["ethereum_network"], limit=10)
+    assert any(
+        p.price_change_percentage_24h is not None and p.price_change_percentage_24h > bound
+        for p in baseline.results
+    )
+
+def test_short_price_change_windows_are_pool_only(client, test_data):
+    """Pin the sort-side asymmetry so a later sweep does not add these to tokens.
+
+    /tokens/search returns 400 for the 6h/1h/5m windows and token rows carry no
+    5m field at all. The SDK keeps them out of the token sort set on purpose.
+    The 24h window is not in that group: it sorts on both endpoints, so
+    TOKEN_SORT_CANONICAL carries it and this test leaves it alone.
+    """
+    from requests.exceptions import HTTPError
+    from dexpaprika_sdk.api.base import (
+        POOL_SORT_CANONICAL, TOKEN_SORT_CANONICAL, map_token_sort_field,
+    )
+
+    windows = set(PRICE_CHANGE_WINDOWS)
+    assert windows <= POOL_SORT_CANONICAL
+    assert not (windows & TOKEN_SORT_CANONICAL)
+    for window in windows:
+        # Anything unknown to /tokens/search falls back to volume_usd_24h.
+        assert map_token_sort_field(window) == "volume_usd_24h"
+
+    # And the API still rejects the window on the token side.
+    with pytest.raises(HTTPError):
+        client.get(
+            f"/networks/{test_data['ethereum_network']}/tokens/search",
+            params={"order_by": "price_change_percentage_5m", "limit": 1},
+        )
+
+def test_tokens_get_top_price_change_window_falls_back(client, test_data):
+    """A pool-only window passed to tokens.get_top must not reach the wire."""
+    top = client.tokens.get_top(
+        test_data["ethereum_network"],
+        order_by="price_change_percentage_5m",
+        limit=3
+    )
+    assert top.query is not None
+    assert top.query.get("order_by") == "volume_usd_24h"
+    assert len(top.results) > 0
+
+def test_tokens_filter_price_change_24h(client, test_data):
+    """The 24h bound is the one price-change filter /tokens/search applies.
+
+    The bound is fixed rather than measured because the token side ranks by
+    percentage across every token on the chain, where the top rows run to
+    absurd numbers. 20% is a threshold something on ethereum always clears, and
+    an empty page fails the test loudly instead of passing vacuously.
+    """
+    network = test_data["ethereum_network"]
+    filtered = client.tokens.filter(
+        network, price_change_percentage_24h_min=20, limit=6
+    )
+    assert filtered.query is not None
+    assert filtered.query.get("price_change_percentage_24h_min") == 20
+    assert len(filtered.results) > 0
+    for token in filtered.results:
+        assert token.price_change_percentage_24h is not None, token.address
+        assert token.price_change_percentage_24h >= 20
+
+    # Contrast: the same query without the bound is ordered by volume, and the
+    # highest-volume tokens on ethereum sit near flat.
+    baseline = client.tokens.filter(network, limit=6)
+    assert any(
+        t.price_change_percentage_24h is not None and t.price_change_percentage_24h < 20
+        for t in baseline.results
+    )
+
+def test_tokens_filter_ignores_short_window_bounds(client, test_data):
+    """The short bounds are not offered on tokens because the API drops them.
+
+    tokens.filter() raises TypeError rather than sending a 6h bound. Sending one
+    by hand shows why the SDK refuses: HTTP 200, and the bound missing from the
+    `query` echo, which lists only what the endpoint recognised. Off the wire the
+    rows come back identical to the unfiltered call. A silently ignored bound is
+    worse than an error.
+    """
+    network = test_data["ethereum_network"]
+    with pytest.raises(TypeError):
+        client.tokens.filter(network, price_change_percentage_6h_min=20)
+
+    raw = client.get(
+        f"/networks/{network}/tokens/search",
+        params={"limit": 6, "price_change_percentage_6h_min": 20},
+    )
+    assert "price_change_percentage_6h_min" not in raw.get("query", {})
 
 # Top Tokens API tests
 def test_tokens_get_top(client, test_data):

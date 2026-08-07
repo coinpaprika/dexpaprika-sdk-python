@@ -91,7 +91,9 @@ class PoolsAPI(BaseAPI):
             limit: Number of items per page
             sort: Sort order ("asc" or "desc")
             order_by: Field to order by (legacy values such as "volume_usd" are
-                mapped to canonical search fields automatically)
+                mapped to canonical search fields automatically). Pools can also
+                be ordered by "price_change_percentage_24h", "..._6h", "..._1h"
+                and "..._5m"; those windows exist on pools only.
             cursor: Cursor for cursor-based pagination
 
         Returns:
@@ -303,19 +305,35 @@ class PoolsAPI(BaseAPI):
         created_after: Optional[Union[int, str]] = None,
         created_before: Optional[Union[int, str]] = None,
         cursor: Optional[str] = None,
+        price_change_percentage_24h_min: Optional[float] = None,
+        price_change_percentage_24h_max: Optional[float] = None,
+        price_change_percentage_6h_min: Optional[float] = None,
+        price_change_percentage_6h_max: Optional[float] = None,
+        price_change_percentage_1h_min: Optional[float] = None,
+        price_change_percentage_1h_max: Optional[float] = None,
+        price_change_percentage_5m_min: Optional[float] = None,
+        price_change_percentage_5m_max: Optional[float] = None,
     ) -> PoolSearchResponse:
         """
-        Filter pools on a network by volume, liquidity, transactions, and creation date.
+        Filter pools on a network by volume, liquidity, transactions, price move, and creation date.
 
         Backed by /networks/{network}/pools/search. Legacy sort-field values and
         filter param names are mapped to the canonical search names automatically.
+
+        The price-change bounds are percentages and negative values are
+        meaningful: ``price_change_percentage_24h_max=-20`` selects pools down
+        at least 20% on the day. Unknown filter names are ignored by the API and
+        still answer 200 with a full unfiltered result set, so a bound that never
+        reaches the wire looks like a working call that returns the wrong pools.
 
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
             page: Accepted for backward compatibility. The search endpoint is
                 cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page (max 100)
-            sort_by: Field to sort by (e.g., "volume_24h", "liquidity_usd", "txns_24h", "created_at")
+            sort_by: Field to sort by (e.g., "volume_24h", "liquidity_usd", "txns_24h",
+                "created_at", "price_change_percentage_24h", "price_change_percentage_6h",
+                "price_change_percentage_1h", "price_change_percentage_5m")
             sort_dir: Sort direction ("asc" or "desc")
             volume_24h_min: Minimum 24h volume in USD
             volume_24h_max: Maximum 24h volume in USD
@@ -327,6 +345,14 @@ class PoolsAPI(BaseAPI):
             created_after: Only pools created after this time (Unix timestamp)
             created_before: Only pools created before this time (Unix timestamp)
             cursor: Cursor for cursor-based pagination
+            price_change_percentage_24h_min: Minimum 24h price change, in percent
+            price_change_percentage_24h_max: Maximum 24h price change, in percent
+            price_change_percentage_6h_min: Minimum 6h price change, in percent
+            price_change_percentage_6h_max: Maximum 6h price change, in percent
+            price_change_percentage_1h_min: Minimum 1h price change, in percent
+            price_change_percentage_1h_max: Maximum 1h price change, in percent
+            price_change_percentage_5m_min: Minimum 5m price change, in percent
+            price_change_percentage_5m_max: Maximum 5m price change, in percent
 
         Returns:
             Cursor-paginated pool search response
@@ -357,6 +383,17 @@ class PoolsAPI(BaseAPI):
             "txns_24h_min": txns_24h_min,
             "created_after": created_after,
             "created_before": created_before,
+            # Price-change windows. These names are already canonical, so they
+            # pass through map_filter_params untouched. The 24h pair also works
+            # on /tokens/search; the 6h, 1h and 5m bounds are pool-only.
+            "price_change_percentage_24h_min": price_change_percentage_24h_min,
+            "price_change_percentage_24h_max": price_change_percentage_24h_max,
+            "price_change_percentage_6h_min": price_change_percentage_6h_min,
+            "price_change_percentage_6h_max": price_change_percentage_6h_max,
+            "price_change_percentage_1h_min": price_change_percentage_1h_min,
+            "price_change_percentage_1h_max": price_change_percentage_1h_max,
+            "price_change_percentage_5m_min": price_change_percentage_5m_min,
+            "price_change_percentage_5m_max": price_change_percentage_5m_max,
         }
         params.update(map_filter_params(filters, POOL_FILTER_PARAM_MAP))
         params = self._clean_params(params)

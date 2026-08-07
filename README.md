@@ -82,7 +82,7 @@ canonical ones automatically). What changed is the response shape:
   but is ignored; pass `cursor=...` to page through results.
 - Pool items: `id` is the pool address, volume is split into
   `volume_usd_24h` / `volume_usd_7d` / `volume_usd_30d`, transactions are
-  `transactions_24h`, and price moves are `price_change_percentage_5m/1h/24h`.
+  `transactions_24h`, and price moves are `price_change_percentage_5m/1h/6h/24h`.
 - Token items are flat and identified by `address` (no `name`/`symbol`, no nested
   time-interval objects): `price_usd`, `volume_usd_24h/7d/30d`, `liquidity_usd`,
   `fdv_usd`, `txns_24h`, `price_change_percentage_24h`.
@@ -231,6 +231,82 @@ filtered = client.pools.filter(
 for pool in filtered.results:
     token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown"
     print(f"- {token_pair}: ${pool.volume_usd_24h or 0:,.0f} volume")
+```
+
+#### Sort and filter by price move
+
+Pools can be sorted and filtered on four price-change windows: `24h`, `6h`, `1h`
+and `5m`. Pass the window to `sort_by` / `order_by`, or bound it with the
+matching `_min` / `_max` filter. Tokens support the 24h window only; the table
+further down has the exact split.
+
+```python
+# Biggest 5-minute movers on Ethereum
+movers = client.pools.list_by_network(
+    network_id="ethereum",
+    order_by="price_change_percentage_5m",
+    sort="desc",
+    limit=10
+)
+for pool in movers.results:
+    print(f"- {pool.id}: {pool.price_change_percentage_5m or 0:+.2f}% in 5m")
+
+# Pools down at least 20% on the day, with real liquidity behind them.
+# Bounds are percentages, so a drop is a negative *_max.
+dumping = client.pools.filter(
+    network_id="ethereum",
+    price_change_percentage_24h_max=-20,
+    liquidity_usd_min=50000,
+    limit=10
+)
+for pool in dumping.results:
+    print(f"- {pool.id}: {pool.price_change_percentage_24h or 0:.2f}% 24h")
+
+# Combine bounds to find a short spike that has not yet shown up in the day
+spiking = client.pools.filter(
+    network_id="ethereum",
+    price_change_percentage_1h_min=50,
+    price_change_percentage_24h_max=10,
+    limit=10
+)
+```
+
+Available bounds on `pools.filter()`: `price_change_percentage_24h_min` /
+`_max`, `price_change_percentage_6h_min` / `_max`,
+`price_change_percentage_1h_min` / `_max`, `price_change_percentage_5m_min` /
+`_max`.
+
+The token side is narrower, and the line falls in a different place for sorting
+than for filtering:
+
+| | pools | tokens |
+|---|---|---|
+| sort by `price_change_percentage_24h` | yes | yes |
+| sort by `_6h`, `_1h`, `_5m` | yes | no, HTTP 400 |
+| filter on `price_change_percentage_24h_min` / `_max` | yes | yes |
+| filter on `_6h`, `_1h`, `_5m` bounds | yes | 200, then ignored |
+
+So `tokens.get_top()` and `tokens.filter()` take the 24h window and nothing
+shorter. `/networks/{network}/tokens/search` rejects the short windows as sort
+fields with HTTP 400, and token rows carry no 5m field at all. A short window
+handed to a token method as `order_by` falls back to `volume_usd_24h` rather
+than failing.
+
+The short bounds are a nastier case on the filter side. `/tokens/search` answers
+200 to `price_change_percentage_6h_min` and then ignores it, returning a full
+unfiltered page that looks filtered, so `tokens.filter()` does not accept those
+three at all. Passing one raises `TypeError` in your process instead of handing
+you wrong rows.
+
+```python
+# Tokens up at least 20% on the day, ordered by volume
+movers = client.tokens.filter(
+    network_id="ethereum",
+    price_change_percentage_24h_min=20,
+    limit=10
+)
+for token in movers.results:
+    print(f"- {token.address}: {token.price_change_percentage_24h or 0:+.2f}% 24h")
 ```
 
 #### Get top tokens on a network

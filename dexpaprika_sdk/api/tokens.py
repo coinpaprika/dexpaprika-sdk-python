@@ -199,12 +199,21 @@ class TokensAPI(BaseAPI):
         created_after: Optional[Union[int, str]] = None,
         created_before: Optional[Union[int, str]] = None,
         cursor: Optional[str] = None,
+        price_change_percentage_24h_min: Optional[float] = None,
+        price_change_percentage_24h_max: Optional[float] = None,
     ) -> TokenSearchResponse:
         """
-        Filter tokens on a network by volume, liquidity, FDV, transactions, and creation date.
+        Filter tokens on a network by volume, liquidity, FDV, transactions, price move, and creation date.
 
         Backed by /networks/{network}/tokens/search. Legacy sort-field values and
         filter param names are mapped to the canonical search names automatically.
+
+        The 24h price-change bounds are percentages and negative values are
+        meaningful: ``price_change_percentage_24h_max=-30`` selects tokens down
+        at least 30% on the day. Only the 24h window is filterable here. The
+        endpoint accepts a 6h, 1h or 5m bound with HTTP 200 and then ignores it,
+        so those three are deliberately not offered: passing one raises TypeError
+        instead of returning an unfiltered page that looks filtered.
 
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
@@ -222,6 +231,8 @@ class TokensAPI(BaseAPI):
             created_after: Only tokens created after this time (Unix timestamp)
             created_before: Only tokens created before this time (Unix timestamp)
             cursor: Cursor for cursor-based pagination
+            price_change_percentage_24h_min: Minimum 24h price change, in percent
+            price_change_percentage_24h_max: Maximum 24h price change, in percent
 
         Returns:
             Cursor-paginated token search response
@@ -251,6 +262,10 @@ class TokensAPI(BaseAPI):
             "txns_24h_min": txns_24h_min,
             "created_after": created_after,
             "created_before": created_before,
+            # Already canonical, so these pass through map_filter_params
+            # untouched. 24h only: the shorter windows are accepted and ignored.
+            "price_change_percentage_24h_min": price_change_percentage_24h_min,
+            "price_change_percentage_24h_max": price_change_percentage_24h_max,
         }
         params.update(map_filter_params(filters, TOKEN_FILTER_PARAM_MAP))
         params = self._clean_params(params)

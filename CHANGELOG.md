@@ -5,6 +5,40 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-08-07
+
+### Added
+- **Short price-change windows on pools**: `/networks/{network}/pools/search`
+  now accepts `price_change_percentage_6h`, `price_change_percentage_1h` and
+  `price_change_percentage_5m` as `order_by` values. All three were added to
+  `POOL_SORT_CANONICAL`, so `pools.list_by_network()` and `pools.filter()` pass
+  them through instead of silently falling back to `volume_usd_24h`.
+- **Price-change bounds on `pools.filter()`**: eight new keyword arguments,
+  `price_change_percentage_{24h,6h,1h,5m}_{min,max}`. The 24h pair was missing
+  as well, so all four windows are now filterable. Values are percentages and
+  negatives are meaningful: `price_change_percentage_24h_max=-20` selects pools
+  down at least 20% on the day.
+- **24h price-change bounds on `tokens.filter()`**: two new keyword arguments,
+  `price_change_percentage_24h_min` and `_max`.
+  `/networks/{network}/tokens/search` applies both, so the SDK now exposes them.
+- **`PoolSearchResult.price_change_percentage_6h`**: the search endpoint returns
+  this field and the model was dropping it.
+
+### Notes
+- The 6h, 1h and 5m windows are pool-only; 24h is not. `/tokens/search` returns
+  HTTP 400 when asked to sort by a short window, and token rows carry no 5m
+  field, so `TOKEN_SORT_CANONICAL` is deliberately left without those three
+  while keeping `price_change_percentage_24h`. A short window passed to a token
+  method as a sort field falls back to `volume_usd_24h`. Regression tests pin
+  the split on both the sort side and the filter side.
+- `/tokens/search` answers 200 to a 6h, 1h or 5m filter bound and then ignores
+  it, so `tokens.filter()` does not accept those three. Passing one raises
+  `TypeError` rather than returning an unfiltered page that looks filtered.
+- An unknown filter param is ignored by the API, which still answers 200 with a
+  full unfiltered result set, so a typo in a bound would look like a working
+  call returning the wrong pools. The new tests assert against the API's own
+  `query` echo, which lists only the parameters it recognised.
+
 ## [0.6.0] - 2026-07-15
 
 ### Breaking Changes
