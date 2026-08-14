@@ -6,7 +6,7 @@ it returns a non-2xx response whose JSON body carries a "replacement" field
 pointing at the endpoint to use instead, for example::
 
     {"code": 410, "message": "endpoint removed",
-     "replacement": "/networks/:network/pools/search"}
+     "replacement": "/networks/{network}/pools/search"}
 
 The client turns any such response into a ``DeprecatedEndpointError`` so that
 callers (and their logs) see both the API's own message and the replacement

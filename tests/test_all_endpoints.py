@@ -82,29 +82,65 @@ def test_dexes_list(client, test_data):
     dexes_response = client.dexes.list(test_data["ethereum_network"])
     assert dexes_response is not None
     assert hasattr(dexes_response, 'dexes')
+    assert len(dexes_response.dexes) > 0
+    # The wire calls the identifier `dex_id`, not `id`. Reading it as `id` used
+    # to yield None on every row, which broke list_by_dex() downstream.
+    dex = dexes_response.dexes[0]
+    assert dex.dex_id
+    assert dex.id == dex.dex_id
+    # Fields the model used to drop on the floor.
+    assert dex.volume_usd_24h is not None
+    assert dex.txns_24h is not None
+    assert dex.pools_count is not None
 
-def test_pools_list_by_dex_is_gone(client, test_data):
-    """The per-DEX pool listing was removed from the API and answers 410.
+def test_pools_list_by_dex(client, test_data):
+    """list_by_dex now runs on /pools/search with a dex_name filter.
 
-    This test used to assert a successful response. It started failing on main
-    with no code change on our side, once /networks/{network}/dexes/{dex}/pools
-    began returning 410. The SDK behaviour is right: it raises
-    DeprecatedEndpointError and carries the replacement path through, so a
-    caller finds out where to go instead of getting an opaque HTTP error. What
-    was stale was the expectation.
+    The dedicated /networks/{network}/dexes/{dex}/pools endpoint returns 410.
     """
-    from dexpaprika_sdk.exceptions import DeprecatedEndpointError
+    pools_response = client.pools.list_by_dex(
+        test_data["ethereum_network"],
+        test_data["test_dex"],
+        limit=5
+    )
+    assert pools_response is not None
+    assert hasattr(pools_response, 'results')
+    assert hasattr(pools_response, 'has_next_page')
+    # `pools` remains as a backward-compatible alias for `results`
+    assert pools_response.pools == pools_response.results
+    assert len(pools_response.results) > 0
+    # Every row must come from the requested DEX. An unfiltered ethereum search
+    # leads with other DEXes, so this fails if dex_name stops binding.
+    assert all(p.dex_id == test_data["test_dex"] for p in pools_response.results)
+    # New search item shape: pool address under `id`, timeframe-split volume
+    pool = pools_response.results[0]
+    assert hasattr(pool, 'volume_usd_24h')
+    assert not hasattr(pool, 'volume_usd')
 
-    with pytest.raises(DeprecatedEndpointError) as excinfo:
-        client.pools.list_by_dex(
-            test_data["ethereum_network"],
-            test_data["test_dex"],
-            limit=5
-        )
 
-    # The replacement is the useful part of this exception, so pin it rather
-    # than just the type.
-    assert "pools/search" in excinfo.value.replacement
+def test_pools_list_by_dex_wants_the_id_not_the_display_name(client, test_data):
+    """The dex_name filter matches the DEX id, case-insensitively.
+
+    A display name is not an error, it is an empty result set, so this has to be
+    asserted rather than assumed. "uniswap_v3" and "Uniswap V3" differ by more
+    than case, which is what makes this control discriminating; "curve" against
+    "Curve" would pass either way and proves nothing.
+    """
+    network = test_data["ethereum_network"]
+
+    by_id = client.pools.list_by_dex(network, "uniswap_v3", limit=2)
+    assert len(by_id.results) > 0
+    assert all(p.dex_id == "uniswap_v3" for p in by_id.results)
+
+    # Case-insensitive on the id.
+    by_upper = client.pools.list_by_dex(network, "UNISWAP_V3", limit=2)
+    assert len(by_upper.results) > 0
+    assert all(p.dex_id == "uniswap_v3" for p in by_upper.results)
+
+    # The display name from GET /networks/{network}/dexes silently matches
+    # nothing. Passing it is the trap this parameter sets.
+    by_display_name = client.pools.list_by_dex(network, "Uniswap V3", limit=2)
+    assert by_display_name.results == []
 
 def test_pools_get_details(client, test_data):
     pool_details = client.pools.get_details(

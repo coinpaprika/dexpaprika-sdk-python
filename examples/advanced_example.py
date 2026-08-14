@@ -20,6 +20,17 @@ def format_currency(amount):
     return f"${amount:,.2f}"
 
 
+def format_pair(tokens):
+    """Label a pool by its two tokens.
+
+    /pools/search returns token ids only (no symbol), so fall back to a short
+    id. Call client.tokens.get_details(chain, id) if you need real symbols.
+    """
+    if len(tokens) < 2:
+        return "Unknown Pair"
+    return "/".join((t.symbol or f"{t.id[:6]}...") for t in tokens[:2])
+
+
 def main():
     # Create a new DexPaprika client
     client = DexPaprikaClient()
@@ -74,7 +85,7 @@ def main():
         pools = client.pools.list_by_network(network_id=network_id, limit=5, order_by="volume_usd_24h", sort="desc")
         print(f"Top 5 pools by 24h volume:")
         for pool in pools.results:
-            token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown Pair"
+            token_pair = format_pair(pool.tokens)
             print(f"- {token_pair} on {pool.dex_name}: {format_currency(pool.volume_usd_24h or 0)} volume ({format_currency(pool.price_usd or 0)} price)")
         print()
     except Exception as e:
@@ -83,21 +94,25 @@ def main():
     
     # Get pools for a specific DEX
     if dexes and dexes.dexes:
-        dex_id = dexes.dexes[0].id
+        dex_id = dexes.dexes[0].dex_id
         dex_name = dexes.dexes[0].dex_name
         print(f"Getting top pools for {dex_name}...")
         try:
+            # dex_id is sent as the dex_name query param on /pools/search;
+            # the /dexes/{dex}/pools endpoint was removed and returns 410 Gone.
+            # Pass dex_id ("uniswap_v3"), never dex_name ("Uniswap V3"): the
+            # filter matches the id, and a display name comes back empty.
             dex_pools = client.pools.list_by_dex(
-                network_id=network_id, 
-                dex_id=dex_id, 
-                limit=3, 
-                order_by="volume_usd", 
+                network_id=network_id,
+                dex_id=dex_id,
+                limit=3,
+                order_by="volume_usd_24h",
                 sort="desc"
             )
             print(f"Top 3 {dex_name} pools by volume:")
-            for pool in dex_pools.pools:
-                token_pair = f"{pool.tokens[0].symbol}/{pool.tokens[1].symbol}" if len(pool.tokens) >= 2 else "Unknown Pair"
-                print(f"- {token_pair}: {format_currency(pool.volume_usd)} volume")
+            for pool in dex_pools.results:
+                token_pair = format_pair(pool.tokens)
+                print(f"- {token_pair}: {format_currency(pool.volume_usd_24h or 0)} volume")
         except Exception as e:
             print(f"Could not get pools for {dex_name}: {e}")
         print()

@@ -3,7 +3,7 @@ import warnings
 
 from .base import BaseAPI, map_pool_sort_field, map_filter_params, POOL_FILTER_PARAM_MAP
 from ..models.pools import (
-    PoolsResponse, PoolDetails, OHLCVRecord, TransactionsResponse,
+    PoolDetails, OHLCVRecord, TransactionsResponse,
     PoolSearchResponse,
 )
 
@@ -13,7 +13,9 @@ class PoolsAPI(BaseAPI):
 
     # Valid values for common parameters
     VALID_SORT_VALUES: Set[str] = {"asc", "desc"}
-    # order_by for the still-valid DEX pools endpoint (/dexes/{dex}/pools).
+    # Legacy order_by values from the removed /dexes/{dex}/pools endpoint. Kept
+    # for backward compatibility only; they are mapped to canonical
+    # /pools/search sort fields by map_pool_sort_field, not validated against.
     VALID_ORDER_BY_VALUES: Set[str] = {"volume_usd", "price_usd", "transactions", "last_price_change_usd_24h", "created_at"}
     VALID_INTERVAL_VALUES: Set[str] = {"1m", "5m", "10m", "15m", "30m", "1h", "6h", "12h", "24h"}
     
@@ -126,28 +128,41 @@ class PoolsAPI(BaseAPI):
         return PoolSearchResponse(**data)
     
     def list_by_dex(
-        self, 
-        network_id: str, 
-        dex_id: str, 
-        page: int = 0, 
-        limit: int = 10, 
-        sort: str = "desc", 
-        order_by: str = "volume_usd"
-    ) -> PoolsResponse:
+        self,
+        network_id: str,
+        dex_id: str,
+        page: int = 0,
+        limit: int = 10,
+        sort: str = "desc",
+        order_by: str = "volume_usd",
+        cursor: Optional[str] = None,
+    ) -> PoolSearchResponse:
         """
         Get a list of pools for a specific DEX on a network.
-        
+
+        Backed by /networks/{network}/pools/search with a ``dex_name`` filter.
+        The dedicated /networks/{network}/dexes/{dex}/pools endpoint was removed
+        by DexPaprika and returns 410 Gone.
+
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
-            dex_id: DEX ID (e.g., "uniswap_v3")
-            page: Page number for pagination
+            dex_id: DEX ID from GET /networks/{network}/dexes, the ``dex_id``
+                field (e.g., "uniswap_v3"). Sent as the ``dex_name`` query
+                parameter, which matches the id case-insensitively. Passing
+                that response's ``dex_name`` field instead, a display name such
+                as "Uniswap V3", returns an empty result set rather than an
+                error, so always pass the id.
+            page: Accepted for backward compatibility. The search endpoint is
+                cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page
             sort: Sort order ("asc" or "desc")
-            order_by: Field to order by ("volume_usd", "price_usd", etc.)
-            
+            order_by: Field to order by (legacy values such as "volume_usd" are
+                mapped to canonical search fields automatically)
+            cursor: Cursor for cursor-based pagination
+
         Returns:
-            Response containing a list of pools
-            
+            Cursor-paginated pool search response
+
         Raises:
             ValueError: If any parameter is invalid
         """
@@ -157,17 +172,26 @@ class PoolsAPI(BaseAPI):
         self._validate_range("page", page, min_val=0)
         self._validate_range("limit", limit, min_val=1, max_val=100)
         self._validate_enum("sort", sort, self.VALID_SORT_VALUES)
-        self._validate_enum("order_by", order_by, self.VALID_ORDER_BY_VALUES)
-        
-        # Get dex pools
-        params = {"page": page, "limit": limit, "sort": sort, "order_by": order_by}
-        data = self._get(f"/networks/{network_id}/dexes/{dex_id}/pools", params=params)
-        
-        # ensure pools exists
-        if 'pools' not in data: data['pools'] = []
-            
-        return PoolsResponse(**data)
-    
+
+        # The DEX moves from a path segment into the dex_name query param.
+        params = {
+            "dex_name": dex_id,
+            "limit": limit,
+            "order_by": map_pool_sort_field(order_by),
+            "sort": sort,
+            "cursor": cursor,
+        }
+        params = self._clean_params(params)
+
+        data = self._get(f"/networks/{network_id}/pools/search", params=params)
+
+        # ensure results exists
+        if 'results' not in data:
+            data['results'] = []
+
+        return PoolSearchResponse(**data)
+
+
     def get_details(
         self, 
         network_id: str, 

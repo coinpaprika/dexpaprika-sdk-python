@@ -203,7 +203,7 @@ class TestDeprecationHandling(unittest.TestCase):
         body = {
             "code": 410,
             "message": "endpoint removed",
-            "replacement": "/networks/:network/pools/search",
+            "replacement": "/networks/{network}/pools/search",
         }
         with patch('requests.Session.request') as mock_request:
             mock_request.return_value = self._error_response(410, body)
@@ -213,12 +213,12 @@ class TestDeprecationHandling(unittest.TestCase):
 
             error = ctx.exception
             # It surfaces both the API message and the replacement.
-            self.assertEqual(error.replacement, "/networks/:network/pools/search")
+            self.assertEqual(error.replacement, "/networks/{network}/pools/search")
             self.assertEqual(error.api_message, "endpoint removed")
             self.assertEqual(error.status_code, 410)
             self.assertIn("endpoint removed", str(error))
             self.assertIn(
-                "Use /networks/:network/pools/search instead.", str(error)
+                "Use /networks/{network}/pools/search instead.", str(error)
             )
             # It is a DexPaprikaError so callers can catch the family.
             self.assertIsInstance(error, DexPaprikaError)
@@ -263,6 +263,128 @@ class TestDeprecationHandling(unittest.TestCase):
             with self.assertRaises(HTTPError):
                 self.client.get("/pools")
 
+
+# Trimmed from a live GET /networks/ethereum/pools/search?limit=2&dex_name=curve
+# captured 2026-08-05. Field names are copied off the wire, not invented: there
+# is no bare volume_usd and no page_info on this endpoint.
+LIVE_DEX_SEARCH_BODY = {
+    "results": [
+        {
+            "id": "0x4f493b7de8aac7d55f71853688b1f7c8f0243c85",
+            "dex_id": "curve",
+            "dex_name": "Curve",
+            "chain": "ethereum",
+            "volume_usd_24h": 15883391.558251368,
+            "created_at": "2025-01-25T17:20:47Z",
+            "created_at_block_number": 21702976,
+            "transactions_24h": 289,
+            "price_usd": 0.9995787501356217,
+            "price_change_percentage_5m": None,
+            "price_change_percentage_1h": 0.02422482089565938,
+            "price_change_percentage_6h": 0.009802157529374174,
+            "price_change_percentage_24h": 0.007018797950998323,
+            "fee": None,
+            "volume_usd_7d": 31781851.73428885,
+            "volume_usd_30d": 136889876.39037386,
+            "liquidity_usd": 7407910.088430515,
+            "tokens": [
+                {"id": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", "chain": "ethereum", "has_image": True},
+                {"id": "0xdac17f958d2ee523a2206206994597c13d831ec7", "chain": "ethereum", "has_image": True},
+            ],
+        }
+    ],
+    "has_next_page": True,
+    "next_cursor": "eyJjaGFpbiI6ImV0aGVyZXVtIn0",
+    "query": {"network": "ethereum", "limit": 1, "dex_name": "curve", "order_by": "volume_usd_24h"},
+}
+
+
+class TestDexPoolsMigration(unittest.TestCase):
+    """pools.list_by_dex must target /pools/search with a dex_name filter.
+
+    DexPaprika removed GET /networks/{network}/dexes/{dex}/pools on 2026-08-05;
+    it returns 410. These tests pin the replacement path, the param rename and
+    the response shape so the old call cannot come back by accident.
+    """
+
+    def setUp(self):
+        self.client = DexPaprikaClient()
+
+    def _patched_get(self):
+        return patch.object(
+            self.client.pools, "_get", return_value=json.loads(json.dumps(LIVE_DEX_SEARCH_BODY))
+        )
+
+    def test_targets_pools_search_with_dex_name(self):
+        """The DEX moves out of the path and into the dex_name query param."""
+        with self._patched_get() as mock_get:
+            self.client.pools.list_by_dex("ethereum", "curve", limit=1)
+
+        endpoint = mock_get.call_args.args[0]
+        params = mock_get.call_args.kwargs["params"]
+
+        self.assertEqual(endpoint, "/networks/ethereum/pools/search")
+        self.assertNotIn("/dexes/", endpoint)
+        self.assertEqual(params["dex_name"], "curve")
+        self.assertNotIn("dex_id", params)
+        # Cursor pagination: no page number goes on the wire.
+        self.assertNotIn("page", params)
+
+    def test_legacy_order_by_is_mapped(self):
+        """order_by="volume_usd" keeps working and becomes volume_usd_24h."""
+        with self._patched_get() as mock_get:
+            self.client.pools.list_by_dex("ethereum", "curve", order_by="volume_usd")
+        self.assertEqual(mock_get.call_args.kwargs["params"]["order_by"], "volume_usd_24h")
+
+    def test_cursor_is_forwarded(self):
+        """Paging uses cursor, not page."""
+        with self._patched_get() as mock_get:
+            self.client.pools.list_by_dex("ethereum", "curve", cursor="abc123", page=7)
+        params = mock_get.call_args.kwargs["params"]
+        self.assertEqual(params["cursor"], "abc123")
+        self.assertNotIn("page", params)
+
+    def test_response_shape_matches_live_sample(self):
+        """Rows under results, cursor envelope, volume_usd_24h on each row."""
+        with self._patched_get():
+            response = self.client.pools.list_by_dex("ethereum", "curve", limit=1)
+
+        self.assertTrue(response.has_next_page)
+        self.assertEqual(response.next_cursor, "eyJjaGFpbiI6ImV0aGVyZXVtIn0")
+        self.assertEqual(len(response.results), 1)
+        # `.pools` is the backward-compatible alias for `.results`.
+        self.assertEqual(response.pools, response.results)
+        # There is no page_info on the search endpoint.
+        self.assertFalse(hasattr(response, "page_info"))
+
+        pool = response.results[0]
+        self.assertEqual(pool.id, "0x4f493b7de8aac7d55f71853688b1f7c8f0243c85")
+        self.assertEqual(pool.dex_id, "curve")
+        self.assertEqual(pool.volume_usd_24h, 15883391.558251368)
+        self.assertEqual(pool.transactions_24h, 289)
+        self.assertEqual(pool.price_change_percentage_6h, 0.009802157529374174)
+        # The removed field names must not reappear on the model.
+        self.assertFalse(hasattr(pool, "volume_usd"))
+        self.assertFalse(hasattr(pool, "transactions"))
+        # Search rows reference tokens by id and chain only.
+        self.assertEqual(pool.tokens[0].chain, "ethereum")
+        self.assertIsNone(pool.tokens[0].symbol)
+
+    def test_removed_endpoint_raises_typed_error(self):
+        """A caller pinned to the old path gets the replacement in the error."""
+        response = requests.Response()
+        response.status_code = 410
+        response._content = json.dumps({
+            "code": 410,
+            "message": "endpoint removed",
+            "replacement": "/networks/{network}/pools/search",
+        }).encode("utf-8")
+
+        with patch('requests.Session.request', return_value=response):
+            with self.assertRaises(DeprecatedEndpointError) as ctx:
+                self.client.get("/networks/ethereum/dexes/uniswap_v3/pools")
+
+        self.assertEqual(ctx.exception.replacement, "/networks/{network}/pools/search")
 
 class TestPriceChangeWindowParams(unittest.TestCase):
     """Test suite for the price-change sort fields and filter bounds.

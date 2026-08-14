@@ -5,6 +5,45 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-08-14
+
+### Breaking Changes
+- **API endpoint removed (410 Gone)**: `GET /networks/{network}/dexes/{dex}/pools`
+  was removed by DexPaprika. `pools.list_by_dex()` now calls
+  `/networks/{network}/pools/search` with the `dex_name` filter. The `dex_id`
+  argument is unchanged and is sent as `dex_name`. Despite the parameter name,
+  that filter matches the DEX id (`curve`, `uniswap_v3`) case-insensitively. A
+  display name such as `Uniswap V3` returns an empty result set instead of an
+  error, so pass the `dex_id` field from `GET /networks/{network}/dexes`.
+- **Response shape changed**: `pools.list_by_dex()` now returns the
+  cursor-paginated `PoolSearchResponse` (rows under `results` plus
+  `has_next_page` / `next_cursor`; `.pools` remains a backward-compatible alias
+  for `.results`). There is no `page_info`. `page` is accepted but ignored;
+  pass `cursor=...` to page.
+- **Field renames on pool rows**: the 24h volume is `volume_usd_24h`, not
+  `volume_usd`, and the transaction count is `transactions_24h`, not
+  `transactions`.
+- `order_by` is no longer validated against `VALID_ORDER_BY_VALUES` on
+  `list_by_dex`. Legacy values such as `volume_usd` are mapped to the canonical
+  search fields, so canonical names like `liquidity_usd` now work too.
+
+### Fixed
+- `PoolSearchToken` matches the wire: tokens inside a search result carry `id`,
+  `chain` and `has_image`. `name` and `symbol` are kept as optional fields and
+  come back as None.
+- Added the missing `price_change_percentage_6h` field to `PoolSearchResult`.
+- The `advanced_example.py` DEX section printed `None/None` pairs and a missing
+  `volume_usd`. It now labels pools by token id when no symbol is returned.
+- The `Dex` model declared the identifier as `id`, but
+  `GET /networks/{network}/dexes` returns it as `dex_id`. Every `Dex.id` was
+  therefore `None` and the real value was dropped. The field is now `dex_id`,
+  and `Dex.id` stays as a read-only alias that returns it. The model also picked
+  up `volume_usd_24h`, `txns_24h` and `pools_count`, which the wire has always
+  sent and the model silently discarded.
+- `advanced_example.py` read `dexes.dexes[0].id`, which was `None`, so
+  `list_by_dex()` raised "dex_id is required" before it could make a request.
+  It now reads `dex_id`.
+
 ## [0.7.0] - 2026-08-07
 
 ### Added
