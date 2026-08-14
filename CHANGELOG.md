@@ -5,6 +5,19 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-08-14
+
+### Added
+- **Optional API key.** `DexPaprikaClient(api_key=...)`, falling back to the `DEXPAPRIKA_API_KEY` environment variable when no argument is given. Keyless remains the default and is unchanged: without a key the client sends exactly what it sent before. The key is transmitted as the **entire** `Authorization` value, with no `Bearer` prefix and no other scheme word, because the API checksums the raw header and a scheme word returns 401.
+- The host is never inferred from the presence of a key. Free keys are served from the default `base_url` and only Pro moves to `api-pro.dexpaprika.com`, which callers set through `base_url`. Sending a free key to the Pro host returns 403, so guessing would break exactly the people who just registered.
+
+### Fixed
+- **The User-Agent was pinned to `DexPaprika-SDK-Python/0.5.1`** while the package shipped 0.8.0, so every request misreported which version of the SDK sent it. It is now derived from `__version__`. A caller-supplied `user_agent` still wins.
+
+### Notes
+- 21 new tests covering the bare-key format against five scheme words, keyless behaviour, argument-beats-environment precedence, whitespace handling, rejection of keys carrying header-injection characters, and the host rules.
+- A key the API cannot read is ignored rather than rejected on the data endpoints: the call returns `200` with real data while quietly serving the keyless tier. `/usage` is the only endpoint that reports the truth, and its `plan` field is the way to confirm a key is landing.
+
 ## [0.8.0] - 2026-08-14
 
 ### Breaking Changes
