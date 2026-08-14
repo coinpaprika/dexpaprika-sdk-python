@@ -92,3 +92,6 @@ openapi_new.yml
 SDK_UPDATE_INSTRUCTIONS.md
 
 # Note: Internal development files are excluded from the repository 
+# Ad-hoc test environments. This project builds with setup.py/pyproject and
+# does not use uv; a uv.lock here only ever records somebody's local tooling.
+uv.lock
