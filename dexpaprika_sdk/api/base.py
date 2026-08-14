@@ -21,9 +21,14 @@ T = TypeVar('T')
 # ---------------------------------------------------------------------------
 
 # Sort-field values accepted as-is by /pools/search.
+# The 6h / 1h / 5m price-change windows are pool-only. /tokens/search returns
+# HTTP 400 for them and token rows carry no 5m field at all, so they must never
+# be copied into TOKEN_SORT_CANONICAL below.
 POOL_SORT_CANONICAL: Set[str] = {
     "volume_usd_24h", "volume_usd_7d", "volume_usd_30d", "liquidity_usd",
     "txns_24h", "created_at", "price_usd", "price_change_percentage_24h",
+    "price_change_percentage_6h", "price_change_percentage_1h",
+    "price_change_percentage_5m",
 }
 
 # Legacy sort-field value -> canonical /pools/search value.
@@ -38,6 +43,9 @@ POOL_SORT_FIELD_MAP: Dict[str, str] = {
 }
 
 # Sort-field values accepted as-is by /tokens/search.
+# Deliberately shorter than POOL_SORT_CANONICAL: the 6h / 1h / 5m price-change
+# windows are rejected here with HTTP 400. Adding them for symmetry would break
+# every caller that used them.
 TOKEN_SORT_CANONICAL: Set[str] = {
     "volume_usd_24h", "volume_usd_7d", "volume_usd_30d", "liquidity_usd",
     "txns_24h", "fdv_usd", "created_at", "price_change_percentage_24h",
@@ -58,7 +66,8 @@ TOKEN_SORT_FIELD_MAP: Dict[str, str] = {
 
 # Legacy filter param name -> canonical /pools/search query param name.
 # Names not listed here (liquidity_usd_min, liquidity_usd_max, txns_24h_min,
-# created_after, created_before) are already canonical and pass through.
+# created_after, created_before, price_change_percentage_{24h,6h,1h,5m}_{min,max})
+# are already canonical and pass through.
 POOL_FILTER_PARAM_MAP: Dict[str, str] = {
     "volume_24h_min": "volume_usd_24h_min",
     "volume_24h_max": "volume_usd_24h_max",
@@ -68,7 +77,14 @@ POOL_FILTER_PARAM_MAP: Dict[str, str] = {
 
 # Legacy filter param name -> canonical /tokens/search query param name.
 # Names not listed here (liquidity_usd_min, fdv_min, fdv_max, txns_24h_min,
-# created_after, created_before) are already canonical and pass through.
+# created_after, created_before, price_change_percentage_24h_min/_max) are
+# already canonical and pass through.
+#
+# The filter side does not mirror the sort side. /tokens/search applies
+# price_change_percentage_24h_min and _max. It answers 200 to the 6h, 1h and 5m
+# bounds and then ignores them, so a caller who passed one would get a full
+# unfiltered page that looks filtered. That is why tokens.filter() offers the
+# 24h pair and refuses the other three outright.
 TOKEN_FILTER_PARAM_MAP: Dict[str, str] = {
     "volume_24h_min": "volume_usd_24h_min",
     "volume_24h_max": "volume_usd_24h_max",
