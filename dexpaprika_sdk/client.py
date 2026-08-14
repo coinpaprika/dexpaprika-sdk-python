@@ -1,3 +1,4 @@
+import os
 import requests
 import time
 import random
@@ -13,6 +14,35 @@ from .api.dexes import DexesAPI
 from .exceptions import DeprecatedEndpointError
 
 
+# Anything that would let a value break out of a header. A key carrying these
+# is dropped rather than sanitised: a mangled key authenticates as nobody, and
+# because the data endpoints ignore an unreadable key instead of rejecting it,
+# the caller would never find out.
+_HEADER_UNSAFE = ("\r", "\n", "\0")
+
+
+def _resolve_api_key(explicit: Optional[str]) -> Optional[str]:
+    """Explicit argument wins, then DEXPAPRIKA_API_KEY, then keyless."""
+    raw = explicit if explicit is not None else os.environ.get("DEXPAPRIKA_API_KEY")
+    if not isinstance(raw, str):
+        return None
+    key = raw.strip()
+    if not key or any(c in key for c in _HEADER_UNSAFE):
+        return None
+    return key
+
+
+def _package_version() -> str:
+    # Deferred: __init__.py imports this module before it defines __version__,
+    # so this can only be read once the package has finished importing. It is
+    # called at construction time, never at import time.
+    try:
+        from . import __version__
+        return __version__
+    except Exception:  # pragma: no cover - defensive
+        return "unknown"
+
+
 class DexPaprikaClient:
     # client for api
 
@@ -20,13 +50,32 @@ class DexPaprikaClient:
         self,
         base_url: str = "https://api.dexpaprika.com",
         session: Optional[requests.Session] = None,
-        user_agent: str = "DexPaprika-SDK-Python/0.5.1",
+        user_agent: Optional[str] = None,
+        api_key: Optional[str] = None,
         max_retries: int = 4,
         backoff_times: List[float] = None,
     ):
+        """
+        Args:
+            api_key: Optional. Falls back to the DEXPAPRIKA_API_KEY environment
+                variable. Keyless is the default and keeps working: without a key
+                the client behaves exactly as before.
+
+                The key is sent as the **entire** Authorization value. There is no
+                "Bearer" prefix and no other scheme word: the API checksums the raw
+                header, so a scheme word returns 401. This is the most common reason
+                a working key looks broken.
+
+                The host does not change when a key is present. Free keys are served
+                from the default base_url and only Pro moves to
+                api-pro.dexpaprika.com, which callers set through base_url.
+        """
         self.base_url = base_url.rstrip("/")
         self.session = session or requests.Session()
-        self.user_agent = user_agent
+        # Was pinned to a literal that fell three minor versions behind the
+        # package, so every request misreported which SDK sent it.
+        self.user_agent = user_agent or f"DexPaprika-SDK-Python/{_package_version()}"
+        self.api_key = _resolve_api_key(api_key)
         self.max_retries = max_retries
         self.backoff_times = backoff_times or [0.1, 0.5, 1.0, 5.0]  # 100ms, 500ms, 1s, 5s
 
@@ -111,6 +160,9 @@ class DexPaprikaClient:
         
         # headers
         request_headers = {"User-Agent": self.user_agent}
+        if self.api_key:
+            # The whole value, with no scheme word in front of it.
+            request_headers["Authorization"] = self.api_key
         if headers: request_headers.update(headers)
 
         last_exception = None
