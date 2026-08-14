@@ -120,7 +120,9 @@ def test_a_key_alone_never_changes_the_host(monkeypatch):
     monkeypatch.delenv("DEXPAPRIKA_API_KEY", raising=False)
     session = RecordingSession()
     DexPaprikaClient(session=session, api_key="api_abc123").get("/networks")
-    assert session.calls[0]["url"].startswith("https://api.dexpaprika.com")
+    # Exact rather than a prefix: a startswith check on a URL is the shape of a
+    # broken host allowlist, and CodeQL is right to flag it even in a test.
+    assert session.calls[0]["url"] == "https://api.dexpaprika.com/networks"
 
 
 def test_pro_customers_set_the_host_explicitly():
@@ -128,4 +130,4 @@ def test_pro_customers_set_the_host_explicitly():
     DexPaprikaClient(
         session=session, api_key="api_abc123", base_url="https://api-pro.dexpaprika.com"
     ).get("/networks")
-    assert session.calls[0]["url"].startswith("https://api-pro.dexpaprika.com")
+    assert session.calls[0]["url"] == "https://api-pro.dexpaprika.com/networks"
