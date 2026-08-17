@@ -13,6 +13,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      # One interpreter's failure should not cancel the other three. Without this,
+      # a single flaky assertion turns into four red jobs and hides whether the
+      # rest actually pass.
+      fail-fast: false
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11']
 
