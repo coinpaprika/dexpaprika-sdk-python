@@ -38,4 +38,9 @@ jobs:
       run: |
         python -m build
         twine check dist/*
-        twine upload dist/* 
+        # --skip-existing: a tag can be pushed more than once, and v0.9.0 was pushed
+        # three times. Without it the second push after a successful upload gets
+        # HTTP 400 File already exists, turning the job red for a release that in fact
+        # shipped correctly. A red X that does not mean anything is how the 0.4.0
+        # failure went unnoticed for five months.
+        twine upload --skip-existing dist/* 
