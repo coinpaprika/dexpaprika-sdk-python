@@ -11,12 +11,35 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.'))
 
 from dexpaprika_sdk import DexPaprikaClient
 
-# Create a fixture for the client to be reused across tests
+# Every test in this module talks to the real api.dexpaprika.com. That is the
+# point of the file: it is a smoke test of the live endpoint surface, and mocking
+# it would reduce assertions like "networks is not None" to assertions about a
+# MagicMock. Marking the module keeps it out of the default run, because a
+# rate-limited or briefly unreachable API is not a reason to fail a push.
+#
+# Run it deliberately:  pytest -m live
+pytestmark = pytest.mark.live
+
+
+# This deliberately overrides the mocked `client` fixture in conftest.py. Without
+# it, these tests would assert against mocks and prove nothing.
 @pytest.fixture
 def client():
     return DexPaprikaClient()
 
-# Create a fixture for test data
+
+# Keyless traffic is capped at 30 requests per minute, and this module makes one
+# request per test, faster than that. A free API key raises the monthly quota but
+# does not lift the per-minute limit, so pacing is the only fix.
+@pytest.fixture(autouse=True)
+def _respect_rate_limit():
+    yield
+    time.sleep(2.5)
+
+
+# `test_data` intentionally differs from the conftest copy: this module needs a
+# real 7-day window for the historical OHLCV calls, where the mocked suite uses
+# a single day.
 @pytest.fixture
 def test_data():
     return {
