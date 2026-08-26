@@ -31,6 +31,14 @@ jobs:
           python -m pip install pytest
           pip install -e .
       - name: Run the live suite
-        # -p no:randomly and no parallelism on purpose: keyless traffic is capped
-        # at 30 requests a minute and the suite paces itself with a 2.5s gap.
+        # No parallelism on purpose. The per-minute limit is 15 keyless and 30
+        # with a free key, and the suite paces itself from DEXPAPRIKA_API_KEY:
+        # 4.2s between calls without one, 2.1s with one.
+        #
+        # The key is optional and the secret may be unset, in which case this
+        # runs keyless and simply takes longer. Setting it is still worth doing:
+        # the keyless allowance is per IP, and a shared GitHub runner address is
+        # a bad place to bet on having the whole bucket to yourself.
         run: pytest -m live -v
+        env:
+          DEXPAPRIKA_API_KEY: ${{ secrets.DEXPAPRIKA_API_KEY }}

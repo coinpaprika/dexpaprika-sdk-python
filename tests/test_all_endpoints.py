@@ -28,13 +28,21 @@ def client():
     return DexPaprikaClient()
 
 
-# Keyless traffic is capped at 30 requests per minute, and this module makes one
-# request per test, faster than that. A free API key raises the monthly quota but
-# does not lift the per-minute limit, so pacing is the only fix.
+# The per-minute limit is TWO numbers, not one: keyless is 15 a minute and a free
+# key is 30. This module makes one request per test, faster than either, so it
+# paces itself.
+#
+# It used to sleep a flat 2.5s on a comment saying the cap was 30 and that a key
+# "does not lift the per-minute limit". Both were wrong. 2.5s is ~24/min, which
+# is under 30 but over 15, so the keyless nightly run 429'd every time once it
+# had spent its budget: 6 failures on 2026-08-26. The pace now follows the key.
+_PACE_SECONDS = 2.1 if os.environ.get("DEXPAPRIKA_API_KEY") else 4.2
+
+
 @pytest.fixture(autouse=True)
 def _respect_rate_limit():
     yield
-    time.sleep(2.5)
+    time.sleep(_PACE_SECONDS)
 
 
 # `test_data` intentionally differs from the conftest copy: this module needs a

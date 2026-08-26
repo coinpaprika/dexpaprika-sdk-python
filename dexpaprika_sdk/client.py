@@ -104,9 +104,46 @@ class DexPaprikaClient:
             # Always retry connection errors and timeouts
             return True
         elif isinstance(exception, HTTPError):
-            # Retry server errors (5xx) but not client errors (4xx)
-            return 500 <= exception.response.status_code < 600
+            status = exception.response.status_code
+            # 429 is the one 4xx worth retrying: it is transient by definition,
+            # and the API says so in the body ("this is a per-minute limit, so
+            # it clears on its own"). It also tells us how long to wait, both in
+            # a Retry-After header and a retry_after field. Honour that in
+            # _retry_delay rather than using the generic backoff, which is far
+            # too short for a per-minute bucket.
+            if status == 429:
+                return True
+            # Every other 4xx is deterministic; retrying only burns the quota.
+            return 500 <= status < 600
         return False
+
+    @staticmethod
+    def _retry_after_seconds(exception: Exception) -> Optional[float]:
+        """Seconds the server asked us to wait, or None if it did not say.
+
+        Checked in header-then-body order because the header is cheap and always
+        present on our 429s; the body field is the documented mirror of it and
+        survives proxies that strip headers.
+        """
+        response = getattr(exception, "response", None)
+        if response is None:
+            return None
+        raw = response.headers.get("Retry-After")
+        if raw is None:
+            try:
+                raw = (response.json() or {}).get("retry_after")
+            except ValueError:
+                raw = None
+        if raw is None:
+            return None
+        try:
+            seconds = float(raw)
+        except (TypeError, ValueError):
+            # Retry-After may be an HTTP date. We do not parse it; the caller
+            # falls back to the normal backoff rather than guessing.
+            return None
+        # Clamp: a hostile or buggy value must not park a caller for an hour.
+        return max(0.0, min(seconds, 60.0))
 
     def _deprecation_error(self, response) -> Optional[DeprecatedEndpointError]:
         """Build a DeprecatedEndpointError if the error body carries a replacement.
@@ -196,9 +233,14 @@ class DexPaprikaClient:
                 if retries > self.max_retries or not self._should_retry(e):
                     break
                 
-                # Get backoff time (use the last one if we've exhausted the list)
-                backoff_index = min(retries - 1, len(self.backoff_times) - 1)
-                backoff_time = self.backoff_times[backoff_index]
+                # A server-supplied Retry-After wins. Our own backoff tops out
+                # at 5s, which is useless against a per-minute rate limit.
+                asked = self._retry_after_seconds(e)
+                if asked is not None:
+                    backoff_time = asked
+                else:
+                    backoff_index = min(retries - 1, len(self.backoff_times) - 1)
+                    backoff_time = self.backoff_times[backoff_index]
                 
                 # Add some jitter (±10% of the backoff time)
                 jitter = random.uniform(-0.1 * backoff_time, 0.1 * backoff_time)
