@@ -162,6 +162,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.0] - 2026-03-31
 
+> **Never published to PyPI.** The publish job for this tag failed: `publish.yml` still
+> authenticated with a username and password, which PyPI had already retired, so it returned
+> `403 Username/Password authentication is no longer supported`. Nobody uploaded it by hand
+> afterwards, and the gap went unnoticed until 2026-08-18 because the log rendered the failure
+> as a bare `403 Forbidden` (twine prints Python's canonical status phrase and discards the
+> explanation PyPI sends).
+>
+> `pip install dexpaprika-sdk==0.4.0` therefore fails, and installable history skips from
+> 0.3.0 to 0.5.1. The changes below are real and shipped, in 0.5.1 and later. The tag
+> `v0.4.0` still points at the code. The GitHub release was removed so it stops advertising
+> a version that cannot be installed.
+>
+> Fixed for good in 0.9.0: the workflow now uses an API token and triggers on the tag push
+> rather than on release creation, which a bot-authored release never fired.
+
 ### Added
 - **Pool filtering**: `pools.filter()` method for advanced pool filtering by volume, liquidity, transactions, and creation date on any network
 - **Top tokens**: `tokens.get_top()` method for discovering top tokens on a network ranked by volume, price, liquidity, or other metrics
