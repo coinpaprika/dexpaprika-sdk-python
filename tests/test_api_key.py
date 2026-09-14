@@ -1,9 +1,9 @@
 """Optional API key, and the header rules that go with it.
 
-Keyless is the default and must keep working untouched. The Bearer rule is the
-regression this file exists for: `Authorization: Bearer api_...` returns 401
-because the API checksums the raw header value, and the mistake has resurfaced
-three times in four months.
+Keyless is the default and must keep working untouched. The Authorization rule is
+the regression this file exists for: the key is the entire header value, nothing
+goes in front of it, and no scheme word is ever prepended. That has been
+re-derived wrongly three times in four months.
 """
 import pytest
 
@@ -45,7 +45,7 @@ def headers_for(**kwargs):
     return session.calls[0]["headers"]
 
 
-# ── The Bearer rule ────────────────────────────────────────────────────────
+# ── The Authorization rule ─────────────────────────────────────────────────
 
 def test_key_is_the_entire_authorization_value():
     assert headers_for(api_key="api_abc123")["Authorization"] == "api_abc123"
