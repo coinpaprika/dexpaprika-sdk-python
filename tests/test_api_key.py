@@ -45,7 +45,7 @@ def headers_for(**kwargs):
     return session.calls[0]["headers"]
 
 
-# ── The Bearer rule ────────────────────────────────────────────────────────
+# ── The Authorization rule ─────────────────────────────────────────────────
 
 def test_key_is_the_entire_authorization_value():
     assert headers_for(api_key="api_abc123")["Authorization"] == "api_abc123"
