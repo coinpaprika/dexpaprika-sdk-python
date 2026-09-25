@@ -239,10 +239,13 @@ class PoolsAPI(BaseAPI):
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
             pool_address: Pool address or identifier
-            start: Start time for historical data (ISO-8601, yyyy-mm-dd, or Unix timestamp)
-            end: End time for historical data (max 1 year from start)
-            limit: Number of data points to retrieve (max 366)
-            interval: Interval granularity for OHLCV data (1m, 5m, 10m, 15m, 30m, 1h, 6h, 12h, 24h)
+            start: Start time for historical data: a relative offset from now such as
+                "-24h" or "-7d", ISO-8601, yyyy-mm-dd, or a Unix timestamp. Must fall
+                inside your plan's history window (24 hours without a key).
+            end: End time for historical data, same formats as start (max 1 year from start)
+            limit: Number of data points to retrieve (max 1000)
+            interval: Interval granularity for OHLCV data (1m, 5m, 10m, 15m, 30m, 1h, 6h, 12h, 24h).
+                Without a key only 1h and longer; a free key allows 10m and longer.
             inversed: Whether to invert the price ratio in OHLCV calculations
             
         Returns:
@@ -250,12 +253,15 @@ class PoolsAPI(BaseAPI):
             
         Raises:
             ValueError: If any parameter is invalid
+            requests.HTTPError: 403 when the request asks for more history or a finer
+                interval than your plan allows; the message names the plan that lifts
+                the limit. See https://docs.dexpaprika.com/knowledge-base/rate-limits#ohlcv-limits-by-plan
         """
         # Validate parameters
         self._validate_required("network_id", network_id)
         self._validate_required("pool_address", pool_address)
         self._validate_required("start", start)
-        self._validate_range("limit", limit, min_val=1, max_val=366)
+        self._validate_range("limit", limit, min_val=1, max_val=1000)
         self._validate_enum("interval", interval, self.VALID_INTERVAL_VALUES)
         
         # Get price history

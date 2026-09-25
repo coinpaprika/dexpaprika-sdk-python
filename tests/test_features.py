@@ -247,13 +247,29 @@ class TestDeprecationHandling(unittest.TestCase):
             self.assertEqual(ctx.exception.status_code, 400)
 
     def test_error_without_replacement_falls_back(self):
-        """An error body without a replacement keeps the bare HTTPError behavior."""
+        """An error body without a replacement still raises HTTPError."""
         body = {"code": 410, "message": "endpoint removed"}
         with patch('requests.Session.request') as mock_request:
             mock_request.return_value = self._error_response(410, body)
 
             with self.assertRaises(HTTPError):
                 self.client.get("/pools")
+
+    def test_error_message_is_surfaced(self):
+        """The API's message reaches the HTTPError text; the response stays attached."""
+        body = {"message": "OHLCV history beyond the last 24 hours requires an API key "
+                           "(free key: 7 days, Dev plan: 30 days, Pro plan: unlimited)"}
+        with patch('requests.Session.request') as mock_request:
+            mock_request.return_value = self._error_response(403, body)
+
+            with self.assertRaises(HTTPError) as ctx:
+                self.client.get("/networks/ethereum/pools/0xabc/ohlcv")
+
+            self.assertIn("403 Client Error", str(ctx.exception))
+            self.assertIn("free key: 7 days", str(ctx.exception))
+            self.assertEqual(ctx.exception.response.status_code, 403)
+            # A plan limit is deterministic; it must not be retried.
+            self.assertEqual(mock_request.call_count, 1)
 
     def test_non_json_error_falls_back(self):
         """A non-JSON error body keeps the bare HTTPError behavior."""
