@@ -20,6 +20,7 @@ OHLCV availability now depends on your plan. This release documents the change, 
 
 ### Fixed
 - **`get_ohlcv` rejected `limit` above 366.** The API accepts up to 1000 candles per request; the SDK now does too.
+- The `end` docstring claimed a 1-year cap after `start`. The API has none: one paid-key request returned 692 daily candles spanning November 2024 to September 2026.
 - The README example, `examples/advanced_example.py` and the live OHLCV test asked for a week (or since yesterday's midnight), which returns 403 without a key. They use `start="-24h"`.
 
 ## [0.9.0] - 2026-08-14

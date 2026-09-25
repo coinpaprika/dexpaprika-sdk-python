@@ -242,7 +242,7 @@ class PoolsAPI(BaseAPI):
             start: Start time for historical data: a relative offset from now such as
                 "-24h" or "-7d", ISO-8601, yyyy-mm-dd, or a Unix timestamp. Must fall
                 inside your plan's history window (24 hours without a key).
-            end: End time for historical data, same formats as start (max 1 year from start)
+            end: End time for historical data, same formats as start, such as "-1h"
             limit: Number of data points to retrieve (max 1000)
             interval: Interval granularity for OHLCV data (1m, 5m, 10m, 15m, 30m, 1h, 6h, 12h, 24h).
                 Without a key only 1h and longer; a free key allows 10m and longer.
