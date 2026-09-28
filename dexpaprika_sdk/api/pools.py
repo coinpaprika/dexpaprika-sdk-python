@@ -284,8 +284,8 @@ class PoolsAPI(BaseAPI):
         page: int = 0,
         limit: int = 10,
         cursor: Optional[str] = None,
-        from_timestamp: Optional[int] = None,
-        to_timestamp: Optional[int] = None
+        from_timestamp: Optional[Union[int, str]] = None,
+        to_timestamp: Optional[Union[int, str]] = None
     ) -> TransactionsResponse:
         """
         Get transactions of a pool on a network.
@@ -296,8 +296,11 @@ class PoolsAPI(BaseAPI):
             page: Page number for pagination
             limit: Number of items per page
             cursor: Transaction ID used for cursor-based pagination
-            from_timestamp: Filter transactions starting from this UNIX timestamp (inclusive). Results capped to last 7 days.
-            to_timestamp: Filter transactions up to this UNIX timestamp (exclusive). Must be after from_timestamp.
+            from_timestamp: Filter transactions starting from this time (inclusive): a relative
+                offset from now such as "-1h" or "-24h", Unix seconds, RFC3339 or YYYY-MM-DD.
+                Results capped to last 7 days.
+            to_timestamp: Filter transactions up to this time (exclusive), same formats as
+                from_timestamp. Must be after from_timestamp.
 
         Returns:
             Response containing a list of transactions
@@ -372,8 +375,8 @@ class PoolsAPI(BaseAPI):
             liquidity_usd_min: Minimum liquidity in USD
             liquidity_usd_max: Maximum liquidity in USD
             txns_24h_min: Minimum number of transactions in 24h
-            created_after: Only pools created after this time (Unix timestamp)
-            created_before: Only pools created before this time (Unix timestamp)
+            created_after: Only pools created at or after this time: a relative offset from now such as "-24h" or "-7d", Unix seconds, RFC3339 or YYYY-MM-DD
+            created_before: Only pools created at or before this time, same formats as created_after
             cursor: Cursor for cursor-based pagination
             price_change_percentage_24h_min: Minimum 24h price change, in percent
             price_change_percentage_24h_max: Maximum 24h price change, in percent
