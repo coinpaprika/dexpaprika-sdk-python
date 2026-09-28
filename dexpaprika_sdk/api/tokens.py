@@ -228,8 +228,8 @@ class TokensAPI(BaseAPI):
             fdv_min: Minimum fully diluted valuation in USD
             fdv_max: Maximum fully diluted valuation in USD
             txns_24h_min: Minimum number of transactions in 24h
-            created_after: Only tokens created after this time (Unix timestamp)
-            created_before: Only tokens created before this time (Unix timestamp)
+            created_after: Only tokens created at or after this time: a relative offset from now such as "-24h" or "-7d", Unix seconds, RFC3339 or YYYY-MM-DD
+            created_before: Only tokens created at or before this time, same formats as created_after
             cursor: Cursor for cursor-based pagination
             price_change_percentage_24h_min: Minimum 24h price change, in percent
             price_change_percentage_24h_max: Maximum 24h price change, in percent

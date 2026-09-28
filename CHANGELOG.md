@@ -5,6 +5,16 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-09-28
+
+Time filters on transactions and search take relative times.
+
+### Added
+- `pools.get_transactions()` takes `from_timestamp` and `to_timestamp` as a string as well as an int: a relative offset from now such as `"-1h"` or `"-24h"`, RFC3339 or `YYYY-MM-DD`, next to Unix seconds. `from_timestamp="-1h"` returns the last hour of trades. The API accepts these shapes since 2026-09-28.
+- `created_after` and `created_before` on `pools.filter()` and `tokens.filter()` already took a string; their docstrings now list the same shapes, so `created_after="-24h"` returns what was created in the last day.
+
+Unix seconds keep working unchanged.
+
 ## [0.10.0] - 2026-09-25
 
 OHLCV availability now depends on your plan. This release documents the change, makes the SDK accept the full `limit` the API allows, and makes a refused request say why.
