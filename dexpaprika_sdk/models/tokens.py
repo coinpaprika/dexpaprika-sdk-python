@@ -124,4 +124,5 @@ class TokenPrice(BaseModel):
 
     chain: str = Field(...)
     id: str = Field(...)
-    price_usd: Optional[float] = Field(None) 
+    price_usd: Optional[float] = Field(None)
+    last_updated: Optional[str] = Field(None, description="When the price was last updated, RFC3339 UTC") 
