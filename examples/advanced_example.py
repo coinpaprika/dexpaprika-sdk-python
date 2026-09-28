@@ -7,7 +7,6 @@ Advanced example demonstrating all available API methods in the DexPaprika SDK.
 import sys
 import os
 import time
-from datetime import datetime, timedelta
 
 # Add the parent directory to the path so we can import the package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -138,16 +137,14 @@ def main():
         print(f"- 24h Price Change: {pool_details.day.last_price_usd_change:.2f}%")
         print()
         
-        # Get OHLCV data
-        yesterday = datetime.now() - timedelta(days=1)
-        yesterday_str = yesterday.strftime("%Y-%m-%d")
-        print(f"Getting OHLCV data since {yesterday_str}...")
+        # Get OHLCV data for the last 24 hours, which works without a key
+        print("Getting OHLCV data for the last 24 hours...")
         
         try:
             ohlcv = client.pools.get_ohlcv(
                 network_id=network_id,
                 pool_address=pool_address,
-                start=yesterday_str,
+                start="-24h",
                 interval="6h",
                 limit=4
             )

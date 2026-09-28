@@ -184,6 +184,20 @@ class DexPaprikaClient:
             response=response,
         )
 
+    @staticmethod
+    def _api_message(response) -> Optional[str]:
+        """Return the top-level ``message`` of a JSON error body, or None."""
+        try:
+            body = response.json()
+        except Exception:
+            return None
+        if not isinstance(body, dict):
+            return None
+        message = body.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+        return None
+
     def request(
         self,
         method: str,
@@ -221,6 +235,16 @@ class DexPaprikaClient:
                     deprecation = self._deprecation_error(response)
                     if deprecation is not None:
                         raise deprecation
+                    # Same exception type and response as raise_for_status, but
+                    # carrying what the API said: an OHLCV 403 names the plan that
+                    # lifts the limit, a 400 names the bad parameter.
+                    api_message = self._api_message(response)
+                    if api_message is not None:
+                        kind = "Client" if status_code < 500 else "Server"
+                        raise HTTPError(
+                            f"{status_code} {kind} Error: {api_message} for url: {response.url}",
+                            response=response,
+                        )
                 response.raise_for_status()
 
                 # return data

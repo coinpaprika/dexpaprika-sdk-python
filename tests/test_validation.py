@@ -69,5 +69,15 @@ class TestParameterValidation(unittest.TestCase):
             self.client.pools.list_by_network("ethereum", limit=101)
         self.assertIn("limit must be at most 100", str(context.exception))
 
+        # OHLCV limit tops out at 1000, the API's own maximum (it used to stop at 366)
+        with self.assertRaises(ValueError) as context:
+            self.client.pools.get_ohlcv(
+                network_id="ethereum",
+                pool_address="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+                start="-24h",
+                limit=1001,
+            )
+        self.assertIn("limit must be at most 1000", str(context.exception))
+
 if __name__ == "__main__":
     unittest.main() 

@@ -5,6 +5,24 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-09-25
+
+OHLCV availability now depends on your plan. This release documents the change, makes the SDK accept the full `limit` the API allows, and makes a refused request say why.
+
+### API changes this release documents
+- **OHLCV history depth and candle interval are per plan since 2026-09-25.** Without a key: the last 24 hours at `1h`, `6h`, `12h` and `24h`. Free key: 7 days at `10m` and longer (`1m` and `5m` are paid). Dev: 30 days at every interval. Pro and Enterprise: unlimited. A `start` or `end` outside the window, or a finer interval than the plan allows, is answered with `403`. See [OHLCV limits by plan](https://docs.dexpaprika.com/knowledge-base/rate-limits#ohlcv-limits-by-plan).
+- **`start` and `end` accept a relative offset from now:** `-24h`, `-7d`, `-90m`, `-30s`. `start="-24h"` selects the last 24 hours, which every plan may query. `start` is a string, so this works in 0.9.0 too.
+- A missing or malformed `start` or `end` is answered with `400`.
+
+### Changed
+- **HTTP errors carry the API's message.** A `403` on OHLCV used to raise `403 Client Error: Forbidden for url: ...`, which does not say what to change. When the error body has a `message`, the `HTTPError` text is now that message, for example `403 Client Error: OHLCV history beyond the last 24 hours requires an API key (free key: 7 days, Dev plan: 30 days, Pro plan: unlimited) for url: ...`. It is still a `requests.HTTPError` with `.response` attached, so existing `except` clauses keep working, and 4xx is still not retried.
+- `get_ohlcv` docstring describes the relative offset and the per-plan window.
+
+### Fixed
+- **`get_ohlcv` rejected `limit` above 366.** The API accepts up to 1000 candles per request; the SDK now does too.
+- The `end` docstring claimed a 1-year cap after `start`. The API has none: one paid-key request returned 692 daily candles spanning November 2024 to September 2026.
+- The README example, `examples/advanced_example.py` and the live OHLCV test asked for a week (or since yesterday's midnight), which returns 403 without a key. They use `start="-24h"`.
+
 ## [0.9.0] - 2026-08-14
 
 ### Added

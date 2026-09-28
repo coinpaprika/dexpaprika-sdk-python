@@ -4,7 +4,6 @@ import sys
 import os
 import time
 import pytest
-from datetime import datetime, timedelta
 
 # Add the parent directory to the path so we can import the package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
@@ -45,9 +44,8 @@ def _respect_rate_limit():
     time.sleep(_PACE_SECONDS)
 
 
-# `test_data` intentionally differs from the conftest copy: this module needs a
-# real 7-day window for the historical OHLCV calls, where the mocked suite uses
-# a single day.
+# `test_data` intentionally differs from the conftest copy: this module talks to
+# the live API, where keyless OHLCV only reaches back 24 hours (start "-24h").
 @pytest.fixture
 def test_data():
     return {
@@ -56,8 +54,6 @@ def test_data():
         "test_pool_address": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",  # USDC/WETH on Uniswap v3
         "test_dex": "uniswap_v3",  # Uniswap V3 on Ethereum
         "test_token_address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC on Ethereum
-        "start_date": (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d"),
-        "end_date": datetime.now().strftime("%Y-%m-%d"),
     }
 
 # Networks API tests
@@ -185,10 +181,9 @@ def test_pools_get_ohlcv(client, test_data):
     ohlcv = client.pools.get_ohlcv(
         test_data["test_pool_network"],
         test_data["test_pool_address"],
-        start=test_data["start_date"],
-        end=test_data["end_date"],
+        start="-24h",
         limit=5,
-        interval="24h"
+        interval="1h"
     )
     assert ohlcv is not None
 
@@ -601,8 +596,6 @@ if __name__ == "__main__":
         "test_pool_address": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
         "test_dex": "uniswap_v3",
         "test_token_address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-        "start_date": (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d"),
-        "end_date": datetime.now().strftime("%Y-%m-%d"),
     }
     
     # Run all test functions
