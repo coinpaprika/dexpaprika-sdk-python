@@ -115,6 +115,22 @@ class Transaction(BaseModel):
     amount_1: Union[str, int, float] = Field(...)
     created_at_block_number: int = Field(...)
 
+    # Sent by the API but dropped before 0.11.1. Optional so a row without
+    # them still parses.
+    chain: Optional[str] = Field(None)
+    factory_id: Optional[str] = Field(None)
+    token_0_symbol: Optional[str] = Field(None)
+    token_1_symbol: Optional[str] = Field(None)
+    volume_0: Optional[float] = Field(None, description="amount_0 in whole token units, unsigned")
+    volume_1: Optional[float] = Field(None, description="amount_1 in whole token units, unsigned")
+    price_0: Optional[float] = Field(None, description="token_0 priced in token_1")
+    price_1: Optional[float] = Field(None, description="token_1 priced in token_0")
+    price_0_usd: Optional[float] = Field(None)
+    price_1_usd: Optional[float] = Field(None)
+    created_at: Optional[str] = Field(None, description="Block time, RFC3339 UTC")
+    created_at_block_hash: Optional[str] = Field(None)
+    canonical_chain: Optional[bool] = Field(None)
+
 
 class TransactionsResponse(PaginatedResponse[Transaction]):
     # txs list response

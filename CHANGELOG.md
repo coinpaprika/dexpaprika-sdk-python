@@ -5,6 +5,16 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-09-28
+
+Two models were silently dropping fields the API sends.
+
+### Fixed
+- `Transaction` (rows of `pools.get_transactions()`) now keeps `created_at`, `token_0_symbol`, `token_1_symbol`, `volume_0`, `volume_1`, `price_0`, `price_1`, `price_0_usd`, `price_1_usd`, `chain`, `factory_id`, `created_at_block_hash` and `canonical_chain`. Before this release only the block number told you when a trade happened, and there was no USD value on the row. `volume_0`/`volume_1` are the amounts in whole token units without a sign; `amount_0`/`amount_1` stay the raw signed integers.
+- `TokenPrice` (items of `tokens.get_multi_prices()`) now keeps `last_updated`.
+
+All new fields are optional, so code that read the old fields is unaffected.
+
 ## [0.11.0] - 2026-09-28
 
 Time filters on transactions and search take relative times.
