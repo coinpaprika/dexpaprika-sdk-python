@@ -61,13 +61,11 @@ class DexPaprikaClient:
                 variable. Keyless is the default and keeps working: without a key
                 the client behaves exactly as before.
 
-                The key is sent as the **entire** Authorization value. There is no
-                "Bearer" prefix and no other scheme word: the API checksums the raw
-                header, so a scheme word returns 401. This is the most common reason
-                a working key looks broken.
+                The key is sent as the **entire** Authorization value: the key
+                alone, with nothing in front of it.
 
                 The host does not change when a key is present. Free keys are served
-                from the default base_url and only Pro moves to
+                from the default base_url; Dev and Pro keys call
                 api-pro.dexpaprika.com, which callers set through base_url.
         """
         self.base_url = base_url.rstrip("/")
@@ -212,7 +210,7 @@ class DexPaprikaClient:
         # headers
         request_headers = {"User-Agent": self.user_agent}
         if self.api_key:
-            # The whole value, with no scheme word in front of it.
+            # The key alone, as the whole Authorization value.
             request_headers["Authorization"] = self.api_key
         if headers: request_headers.update(headers)
 
