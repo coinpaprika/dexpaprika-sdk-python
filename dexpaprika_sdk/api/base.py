@@ -160,7 +160,8 @@ class BaseAPI:
         
         # Default TTLs for different types of data
         self._cache_ttls = {
-            "networks": timedelta(hours=24),  # Network list rarely changes
+            "networks": timedelta(hours=24),  # Network and DEX lists rarely change
+            "live": timedelta(minutes=1),     # Prices, OHLCV and transactions move constantly
             "pools": timedelta(minutes=5),    # Pool data changes frequently
             "tokens": timedelta(minutes=10),  # Token data changes moderately
             "stats": timedelta(minutes=15),   # Stats change moderately
@@ -197,9 +198,21 @@ class BaseAPI:
         Returns:
             The TTL as a timedelta
         """
-        for key, ttl in self._cache_ttls.items():
-            if key in endpoint:
-                return ttl
+        # Almost every path starts with /networks/, so match on what the path
+        # ends in, most volatile first. Only the network and DEX lists
+        # themselves get the long TTL.
+        path = endpoint.split("?", 1)[0].rstrip("/")
+        segments = path.split("/")
+        if path.endswith(("/ohlcv", "/transactions", "/multi/prices")):
+            return self._cache_ttls["live"]
+        if path == "/networks" or segments[-1] == "dexes":
+            return self._cache_ttls["networks"]
+        if "pools" in segments:
+            return self._cache_ttls["pools"]
+        if "tokens" in segments:
+            return self._cache_ttls["tokens"]
+        if "stats" in segments:
+            return self._cache_ttls["stats"]
         return self._cache_ttls["default"]
     
     def _get(

@@ -407,7 +407,7 @@ for token in movers.results:
 # Hourly USD candles for a token over the last 24 hours
 ohlcv_data = client.tokens.get_ohlcv(
     network_id="ethereum",
-    token_address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
+    token_address="0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",  # WETH
     start="-24h",
     interval="1h",
     limit=24
@@ -421,10 +421,9 @@ such as `-24h` or `-7d`, RFC3339, `yyyy-mm-dd`, or a Unix timestamp). Unlike
 pool OHLCV there is no `inversed` parameter, since there is no second token to
 invert against.
 
-This endpoint requires a Dev, Pro or Enterprise plan and is only served on
-`api-pro.dexpaprika.com`; a keyless or free-key call gets HTTP 403 with the
-plan requirement in the message, and the free host never serves it, paid key
-or not. Point the client at the Pro host:
+This endpoint requires a Dev, Pro or Enterprise plan; call it on
+`api-pro.dexpaprika.com`. A keyless or free-key call gets HTTP 403 with the
+plan requirement in the message. Point the client at the Pro host:
 
 ```python
 client = DexPaprikaClient(
