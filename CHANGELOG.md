@@ -5,6 +5,12 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-09-29
+
+### Added
+- `tokens.get_ohlcv()` for `GET /networks/{network}/tokens/{token_address}/ohlcv`: USD candles for a token, volume-weighted across every pool it trades in on that network. Same parameters as `pools.get_ohlcv()` (`start`, `end`, `limit` up to 1000, `interval`) except there is no `inversed`, since there is no second token to invert against. Returns the same `OHLCVRecord` model as pool OHLCV.
+- This endpoint requires a Dev, Pro or Enterprise plan and is only served on `api-pro.dexpaprika.com`; a keyless or free-key call gets `403` with the plan requirement in the message. Dev-plan history is limited to the last 30 days. See [current plans and limits](https://dexpaprika.com/api/pricing) and the [endpoint reference](https://docs.dexpaprika.com/api-reference/tokens/get-ohlcv-data-for-a-token).
+
 ## [0.11.1] - 2026-09-28
 
 Two models were silently dropping fields the API sends.

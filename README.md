@@ -401,6 +401,41 @@ for token in movers.results:
     print(f"- {token.address}: {token.price_change_percentage_24h or 0:+.2f}% 24h")
 ```
 
+#### Get OHLCV data for a token
+
+```python
+# Hourly USD candles for a token over the last 24 hours
+ohlcv_data = client.tokens.get_ohlcv(
+    network_id="ethereum",
+    token_address="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",  # USDC
+    start="-24h",
+    interval="1h",
+    limit=24
+)
+```
+
+Each candle is a volume-weighted USD price across every pool the token trades
+in on that network; volume is USD traded across all of them. Same record shape
+as pool OHLCV, and `start` / `end` take the same formats (a relative offset
+such as `-24h` or `-7d`, RFC3339, `yyyy-mm-dd`, or a Unix timestamp). Unlike
+pool OHLCV there is no `inversed` parameter, since there is no second token to
+invert against.
+
+This endpoint requires a Dev, Pro or Enterprise plan and is only served on
+`api-pro.dexpaprika.com`; a keyless or free-key call gets HTTP 403 with the
+plan requirement in the message, and the free host never serves it, paid key
+or not. Point the client at the Pro host:
+
+```python
+client = DexPaprikaClient(
+    api_key="api_your_dev_or_pro_key",
+    base_url="https://api-pro.dexpaprika.com",
+)
+```
+
+Dev-plan history is limited to the last 30 days. See [current plans and limits](https://dexpaprika.com/api/pricing)
+and the [endpoint reference](https://docs.dexpaprika.com/api-reference/tokens/get-ohlcv-data-for-a-token).
+
 #### Get top tokens on a network
 
 ```python
