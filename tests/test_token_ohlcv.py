@@ -197,3 +197,29 @@ class TestTokenOhlcvErrorSurfacing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# A real 1m UNI candle from api-pro on 2026-09-29. Its USD volume rounded down
+# to 0, so the API left the field out; 0.12.0 raised ValidationError on it.
+CANDLE_WITHOUT_VOLUME = {
+    "time_open": "2026-09-29T09:13:00Z",
+    "time_close": "2026-09-29T09:14:00Z",
+    "open": 8.977335891233913,
+    "high": 8.977335891233913,
+    "low": 8.977335891233913,
+    "close": 8.977335891233913,
+}
+
+
+class TestCandleWithoutVolume(unittest.TestCase):
+    """A candle with no `volume` key parses, with volume 0."""
+
+    def test_model_defaults_volume_to_zero(self):
+        self.assertEqual(OHLCVRecord(**CANDLE_WITHOUT_VOLUME).volume, 0)
+
+    def test_get_ohlcv_parses_a_series_with_a_gap_in_volume(self):
+        client = DexPaprikaClient()
+        body = [LIVE_TOKEN_OHLCV_BODY[0], CANDLE_WITHOUT_VOLUME]
+        with patch.object(client.tokens, "_get", return_value=body):
+            candles = client.tokens.get_ohlcv(NETWORK, TOKEN, start="-2h", interval="1m", limit=2)
+        self.assertEqual([c.volume for c in candles], [48213899, 0])

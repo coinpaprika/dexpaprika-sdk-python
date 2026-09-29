@@ -5,6 +5,11 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-09-29
+
+### Fixed
+- `OHLCVRecord` no longer fails validation on a candle without `volume`. The API leaves the field out when a candle's USD volume rounds down to 0, which happens on quiet minutes even for large tokens: `tokens.get_ohlcv()` on UNI at `1m` raised `ValidationError` on production. `volume` now defaults to 0. Applies to `pools.get_ohlcv()` too, which shares the model.
+
 ## [0.12.0] - 2026-09-29
 
 ### Added

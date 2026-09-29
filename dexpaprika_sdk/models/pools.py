@@ -97,7 +97,9 @@ class OHLCVRecord(BaseModel):
     high: float = Field(...)
     low: float = Field(...)
     close: float = Field(...)
-    volume: int = Field(...)
+    # USD volume as a whole number. The API leaves the field out of a candle
+    # whose volume rounds down to 0 (under $1), so missing means 0.
+    volume: int = Field(0)
 
 
 class Transaction(BaseModel):
