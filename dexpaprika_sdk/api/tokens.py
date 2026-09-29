@@ -8,16 +8,17 @@ from .base import (
 from ..models.tokens import (
     TokenDetails, TokenSearchResponse, TokenPrice,
 )
-from ..models.pools import PoolSearchResponse
+from ..models.pools import PoolSearchResponse, OHLCVRecord
 from ..utils.perf import track_perf
 
 
 class TokensAPI(BaseAPI):
     """API service for token-related endpoints."""
-    
+
     # Valid values for common parameters
     VALID_SORT_VALUES: Set[str] = {"asc", "desc"}
     VALID_ORDER_BY_VALUES: Set[str] = {"volume_usd", "price_usd", "transactions", "last_price_change_usd_24h", "created_at"}
+    VALID_INTERVAL_VALUES: Set[str] = {"1m", "5m", "10m", "15m", "30m", "1h", "6h", "12h", "24h"}
     
     @track_perf
     def get_details(self, network_id: str, token_address: str) -> TokenDetails:
@@ -40,7 +41,72 @@ class TokensAPI(BaseAPI):
         
         data = self._get(f"/networks/{network_id}/tokens/{token_address}")
         return TokenDetails(**data)
-    
+
+    @track_perf
+    def get_ohlcv(
+        self,
+        network_id: str,
+        token_address: str,
+        start: str,
+        end: Optional[str] = None,
+        limit: int = 10,
+        interval: str = "24h",
+    ) -> List[OHLCVRecord]:
+        """
+        Get OHLCV (Open-High-Low-Close-Volume) data for a token on a network.
+
+        Backed by /networks/{network}/tokens/{token_address}/ohlcv. Unlike pool
+        OHLCV, there is no ``inversed`` parameter here: the candle is a
+        volume-weighted USD price across every pool the token trades in on that
+        network, not a ratio between two tokens, so there is nothing to invert.
+        Volume is USD traded across all of those pools. Same record shape as
+        pool OHLCV, so this returns the same ``OHLCVRecord`` model.
+
+        Requires a Dev, Pro or Enterprise plan, called on
+        api-pro.dexpaprika.com. A keyless or free-key request gets HTTP 403.
+        Reach api-pro by constructing the client with
+        ``base_url="https://api-pro.dexpaprika.com"`` and a paid ``api_key``
+        (or the DEXPAPRIKA_API_KEY environment variable); the key is sent as
+        the whole Authorization header value. This SDK does not choose the
+        host for you. Dev-plan history is limited to the last 30 days.
+
+        Args:
+            network_id: Network ID (e.g., "ethereum", "solana")
+            token_address: Token address or identifier
+            start: Start time for historical data: a relative offset from now such as
+                "-24h" or "-7d", RFC3339, yyyy-mm-dd, or a Unix timestamp.
+            end: End time for historical data, same formats as start, such as "-1h"
+            limit: Number of data points to retrieve, 1 to 1000 (server default 10)
+            interval: Interval granularity for OHLCV data (1m, 5m, 10m, 15m, 30m, 1h, 6h, 12h, 24h);
+                server default 24h
+
+        Returns:
+            List of OHLCV records (USD candles)
+
+        Raises:
+            ValueError: If any parameter is invalid
+            requests.HTTPError: 403 when the calling plan does not include this
+                endpoint; the message names the plan requirement. See
+                https://docs.dexpaprika.com/api-reference/tokens/get-ohlcv-data-for-a-token
+        """
+        # Validate parameters
+        self._validate_required("network_id", network_id)
+        self._validate_required("token_address", token_address)
+        self._validate_required("start", start)
+        self._validate_range("limit", limit, min_val=1, max_val=1000)
+        self._validate_enum("interval", interval, self.VALID_INTERVAL_VALUES)
+
+        params = {
+            "start": start,
+            "end": end,
+            "limit": limit,
+            "interval": interval,
+        }
+        params = self._clean_params(params)
+
+        data = self._get(f"/networks/{network_id}/tokens/{token_address}/ohlcv", params=params)
+        return [OHLCVRecord(**item) for item in data]
+
     @track_perf
     def get_pools(
         self,
