@@ -27,7 +27,7 @@ from .models import (
     Stats
 )
 
-__version__ = "0.12.0"
+__version__ = "0.12.1"
 __all__ = [
     "DexPaprikaClient",
     # Exceptions
