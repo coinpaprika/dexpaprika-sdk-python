@@ -1,11 +1,15 @@
-from typing import List, Optional, Dict, Any, Set, Union
+from typing import List, Literal, Optional, Dict, Any, Set, Union
 import warnings
 
-from .base import BaseAPI, map_pool_sort_field, map_filter_params, POOL_FILTER_PARAM_MAP
+from .base import (
+    BaseAPI, map_pool_sort_field, map_filter_params, POOL_FILTER_PARAM_MAP,
+    VALID_INDICATOR_VALUES, VALID_INDICATOR_INTERVAL_VALUES,
+)
 from ..models.pools import (
     PoolDetails, OHLCVRecord, TransactionsResponse,
     PoolSearchResponse,
 )
+from ..models.indicators import IndicatorResponse
 
 
 class PoolsAPI(BaseAPI):
@@ -437,3 +441,111 @@ class PoolsAPI(BaseAPI):
             data['results'] = []
 
         return PoolSearchResponse(**data)
+
+    def get_indicator(
+        self,
+        network_id: str,
+        pool_address: str,
+        indicator: Literal["rsi", "ema", "macd", "bbands", "vwap"],
+        interval: Optional[Literal[
+            "1m", "5m", "10m", "15m", "30m", "1h", "6h", "12h", "24h", "1d",
+        ]] = None,
+        limit: Optional[int] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        cursor: Optional[str] = None,
+        period: Optional[int] = None,
+        fast_period: Optional[int] = None,
+        slow_period: Optional[int] = None,
+        signal_period: Optional[int] = None,
+        std_dev: Optional[float] = None,
+    ) -> IndicatorResponse:
+        """
+        Get a technical indicator for a pool via GET
+        /networks/{network}/pools/{pool_address}/indicators.
+
+        All five indicators are available on every plan, keyless included,
+        with the same interval and history limits as pools.get_ohlcv() for
+        your plan. Those limits move; see
+        https://docs.dexpaprika.com/knowledge-base/rate-limits and
+        https://dexpaprika.com/api/pricing rather than hardcoding a number
+        here.
+
+        Only the parameters you pass are sent. ``period`` applies to rsi, ema,
+        bbands and vwap, not macd; ``fast_period``, ``slow_period`` and
+        ``signal_period`` apply to macd only; ``std_dev`` applies to bbands
+        only. The API rejects a parameter that belongs to a different
+        indicator with HTTP 400, naming the parameter. Leave interval, period
+        and the others unset to get the server's own defaults rather than
+        this SDK's; do not combine ``cursor`` with ``start``.
+
+        Args:
+            network_id: Network ID (e.g., "ethereum", "solana")
+            pool_address: Pool address or identifier
+            indicator: "rsi", "ema", "macd", "bbands" or "vwap"
+            interval: Candle interval (1m, 5m, 10m, 15m, 30m, 1h, 6h, 12h,
+                24h, 1d). "1d" is an alias for "24h". Server default: 24h, or
+                1h for keyless callers on pool indicators.
+            limit: Number of data points to retrieve, 1 to 1000 (server
+                default 100)
+            start: Start time for historical data: a relative offset from now
+                such as "-24h" or "-7d", Unix seconds, RFC3339, or
+                "YYYY-MM-DD". First candle.
+            end: End time for historical data, same formats as start.
+                Exclusive, server default now.
+            cursor: ``next_cursor`` from a previous page. Do not combine with
+                start.
+            period: Lookback period, 1 to 200. rsi default 14, ema default
+                20, bbands default 20, vwap default 14. Not accepted by macd.
+            fast_period: macd only, 1 to 200, default 12
+            slow_period: macd only, 2 to 200, default 26, must exceed
+                fast_period
+            signal_period: macd only, 1 to 200, default 9
+            std_dev: bbands only, greater than 0 and at most 10, default 2
+
+        Returns:
+            The indicator response: the parameters the API used and the
+            computed data points, oldest first
+
+        Raises:
+            ValueError: If any parameter is invalid
+            requests.HTTPError: 400 for a missing or unsupported parameter, or
+                a range too short to compute; 403 when the calling plan does
+                not cover the interval or history requested, naming the
+                required plan; 404 when the pool does not exist
+        """
+        # Validate parameters
+        self._validate_required("network_id", network_id)
+        self._validate_required("pool_address", pool_address)
+        self._validate_required("indicator", indicator)
+        self._validate_enum("indicator", indicator, VALID_INDICATOR_VALUES)
+        self._validate_enum("interval", interval, VALID_INDICATOR_INTERVAL_VALUES)
+        self._validate_range("limit", limit, min_val=1, max_val=1000)
+        self._validate_range("period", period, min_val=1, max_val=200)
+        self._validate_range("fast_period", fast_period, min_val=1, max_val=200)
+        self._validate_range("slow_period", slow_period, min_val=2, max_val=200)
+        self._validate_range("signal_period", signal_period, min_val=1, max_val=200)
+        if std_dev is not None:
+            if std_dev <= 0:
+                raise ValueError("std_dev must be greater than 0")
+            self._validate_range("std_dev", std_dev, max_val=10)
+        if cursor is not None and start is not None:
+            raise ValueError("cursor cannot be combined with start")
+
+        params = {
+            "indicator": indicator,
+            "interval": interval,
+            "limit": limit,
+            "start": start,
+            "end": end,
+            "cursor": cursor,
+            "period": period,
+            "fast_period": fast_period,
+            "slow_period": slow_period,
+            "signal_period": signal_period,
+            "std_dev": std_dev,
+        }
+        params = self._clean_params(params)
+
+        data = self._get(f"/networks/{network_id}/pools/{pool_address}/indicators", params=params)
+        return IndicatorResponse(**data)

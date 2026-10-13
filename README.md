@@ -435,6 +435,79 @@ client = DexPaprikaClient(
 Dev-plan history is limited to the last 30 days. See [current plans and limits](https://dexpaprika.com/api/pricing)
 and the [endpoint reference](https://docs.dexpaprika.com/api-reference/tokens/get-ohlcv-data-for-a-token).
 
+#### Get a technical indicator for a pool
+
+```python
+# RSI on the last six hours of hourly candles, no key required
+rsi = client.pools.get_indicator(
+    network_id="ethereum",
+    pool_address="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+    indicator="rsi",
+    interval="1h",
+    start="-6h",
+)
+for point in rsi.data:
+    print(f"- {point.timestamp}: {point.value:.2f}")
+```
+
+`indicator` is `rsi`, `ema`, `macd`, `bbands` or `vwap`. Only the parameters
+you pass are sent, so leaving `interval`, `period` and the rest unset gets the
+server's own defaults rather than this SDK's. `period` applies to rsi, ema,
+bbands and vwap; `fast_period`, `slow_period` and `signal_period` apply to
+macd only; `std_dev` applies to bbands only. Passing a parameter that belongs
+to a different indicator raises `requests.HTTPError` with status 400 naming
+the parameter.
+
+Each `IndicatorDataPoint` carries `timestamp` plus whichever fields the
+indicator computes: `value` for rsi, ema and vwap; `macd`, `signal` and
+`histogram` for macd; `upper`, `middle` and `lower` for bbands. Pagination is
+cursor-based through `rsi.has_next_page` and `rsi.next_cursor`, same as OHLCV
+and search. All five indicators are available on every plan, keyless
+included, with the same interval and history limits as
+`pools.get_ohlcv()` for your plan; see
+[rate limits](https://docs.dexpaprika.com/knowledge-base/rate-limits) and
+[current plans](https://dexpaprika.com/api/pricing) rather than a number
+here, since both move. Tutorial:
+[technical indicators](https://docs.dexpaprika.com/tutorials/technical-indicators).
+
+```python
+# MACD with explicit periods
+macd = client.pools.get_indicator(
+    network_id="ethereum",
+    pool_address="0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+    indicator="macd",
+    interval="1h",
+    fast_period=12,
+    slow_period=26,
+    signal_period=9,
+)
+latest = macd.data[-1]
+print(f"MACD {latest.macd:.4f}, signal {latest.signal:.4f}, histogram {latest.histogram:.4f}")
+```
+
+#### Get a technical indicator for a token
+
+```python
+client = DexPaprikaClient(
+    api_key="api_your_dev_or_pro_key",
+    base_url="https://api-pro.dexpaprika.com",
+)
+rsi = client.tokens.get_indicator(
+    network_id="ethereum",
+    token_address="0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",  # WETH
+    indicator="rsi",
+    interval="1h",
+)
+```
+
+Same parameters and response shape as the pool version, called through
+`client.tokens.get_indicator()` against
+`/networks/{network}/tokens/{token_address}/indicators`. This endpoint
+requires a Dev, Pro or Enterprise plan; a keyless or free-key call gets HTTP
+403 with the required plan named in the message. See the
+[reference](https://docs.dexpaprika.com/api-reference/tokens/get-a-technical-indicator-for-a-token)
+and [get keys](https://console.dexpaprika.com).
+
 #### Get top tokens on a network
 
 ```python
@@ -604,8 +677,8 @@ print(f"24h price change: {pool.day.last_price_usd_change:.2f}%")
 The SDK provides the following main components:
 
 - `NetworksAPI`: Access information about supported blockchain networks
-- `PoolsAPI`: Query data about liquidity pools across networks, filter pools by metrics
-- `TokensAPI`: Access token information, top tokens, filter tokens, batch price lookups
+- `PoolsAPI`: Query data about liquidity pools across networks, filter pools by metrics, technical indicators (rsi, ema, macd, bbands, vwap)
+- `TokensAPI`: Access token information, top tokens, filter tokens, batch price lookups, technical indicators (Dev, Pro and Enterprise plans)
 - `DexesAPI`: Get information about decentralized exchanges
 - `SearchAPI`: Search for tokens, pools, and DEXes
 - `UtilsAPI`: Utility endpoints like global statistics
