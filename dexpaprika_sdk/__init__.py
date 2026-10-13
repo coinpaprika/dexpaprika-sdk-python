@@ -24,7 +24,8 @@ from .models import (
     TopToken, TopTokensResponse, FilteredToken, TokenFilterResponse,
     TokenPrice,
     DexInfo, SearchResult,
-    Stats
+    Stats,
+    IndicatorDataPoint, IndicatorResponse,
 )
 
 __version__ = "0.12.2"
@@ -44,4 +45,5 @@ __all__ = [
     "TokenPrice",
     "DexInfo", "SearchResult",
     "Stats",
+    "IndicatorDataPoint", "IndicatorResponse",
 ]

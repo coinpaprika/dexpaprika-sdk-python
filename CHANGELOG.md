@@ -5,6 +5,32 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `pools.get_indicator()` and `tokens.get_indicator()` for
+  `GET /networks/{network}/pools/{pool_address}/indicators` and
+  `GET /networks/{network}/tokens/{token_address}/indicators`: rsi, ema, macd,
+  bbands and vwap. Only the parameters you pass are sent, so an indicator you
+  do not ask for never gets the server's defaults. `period` applies to rsi,
+  ema, bbands and vwap; `fast_period`, `slow_period` and `signal_period` apply
+  to macd only; `std_dev` applies to bbands only. A parameter that belongs to
+  a different indicator raises `requests.HTTPError` with status 400 naming
+  the parameter. Returns the new `IndicatorResponse` model: `parameters` (what
+  the API actually used), `data` (oldest first, cursor-paginated through
+  `has_next_page` / `next_cursor`), each point an `IndicatorDataPoint` with
+  `timestamp` plus whichever of `value`, `macd`, `signal`, `histogram`,
+  `upper`, `middle`, `lower` that indicator computes.
+- All five pool indicators are available on every plan, keyless included,
+  with the same interval and history limits as `pools.get_ohlcv()` for your
+  plan. Token indicators require a Dev, Pro or Enterprise plan, called on
+  `api-pro.dexpaprika.com`; a keyless or free-key call gets HTTP 403 naming
+  the required plan. See [rate limits](https://docs.dexpaprika.com/knowledge-base/rate-limits),
+  [current plans](https://dexpaprika.com/api/pricing), the
+  [pool reference](https://docs.dexpaprika.com/api-reference/pools/get-a-technical-indicator-for-a-pool),
+  the [token reference](https://docs.dexpaprika.com/api-reference/tokens/get-a-technical-indicator-for-a-token)
+  and the [tutorial](https://docs.dexpaprika.com/tutorials/technical-indicators).
+
 ## [0.12.2] - 2026-09-29
 
 ### Changed

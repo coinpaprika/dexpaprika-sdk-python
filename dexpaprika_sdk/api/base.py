@@ -121,6 +121,23 @@ def map_filter_params(filters: Dict[str, Any], name_map: Dict[str, str]) -> Dict
     """
     return {name_map.get(key, key): value for key, value in filters.items()}
 
+
+# ---------------------------------------------------------------------------
+# Technical indicators, shared between PoolsAPI.get_indicator() and
+# TokensAPI.get_indicator(). Both call the same query shape against
+# /networks/{network}/pools/{address}/indicators and
+# /networks/{network}/tokens/{address}/indicators.
+# ---------------------------------------------------------------------------
+
+VALID_INDICATOR_VALUES: Set[str] = {"rsi", "ema", "macd", "bbands", "vwap"}
+
+# "1d" is accepted as an alias for "24h" on this endpoint only; it is kept
+# separate from PoolsAPI.VALID_INTERVAL_VALUES / TokensAPI.VALID_INTERVAL_VALUES,
+# which cover OHLCV and do not accept "1d".
+VALID_INDICATOR_INTERVAL_VALUES: Set[str] = {
+    "1m", "5m", "10m", "15m", "30m", "1h", "6h", "12h", "24h", "1d",
+}
+
 class CacheEntry:
     """Class representing a cached response with an expiration time."""
     
@@ -203,7 +220,7 @@ class BaseAPI:
         # themselves get the long TTL.
         path = endpoint.split("?", 1)[0].rstrip("/")
         segments = path.split("/")
-        if path.endswith(("/ohlcv", "/transactions", "/multi/prices")):
+        if path.endswith(("/ohlcv", "/transactions", "/multi/prices", "/indicators")):
             return self._cache_ttls["live"]
         if path == "/networks" or segments[-1] == "dexes":
             return self._cache_ttls["networks"]
@@ -288,7 +305,7 @@ class BaseAPI:
         if value is None or (isinstance(value, str) and value.strip() == ""):
             raise ValueError(f"{param_name} is required")
     
-    def _validate_enum(self, param_name: str, value: str, valid_values: Set[str]) -> None:
+    def _validate_enum(self, param_name: str, value: Optional[str], valid_values: Set[str]) -> None:
         """
         Validate that a parameter is one of a set of valid values.
         
@@ -306,7 +323,7 @@ class BaseAPI:
         if value not in valid_values:
             raise ValueError(f"{param_name} must be one of: {', '.join(sorted(valid_values))}")
     
-    def _validate_range(self, param_name: str, value: Union[int, float], min_val: Optional[Union[int, float]] = None, max_val: Optional[Union[int, float]] = None) -> None:
+    def _validate_range(self, param_name: str, value: Optional[Union[int, float]], min_val: Optional[Union[int, float]] = None, max_val: Optional[Union[int, float]] = None) -> None:
         """
         Validate that a numeric parameter is within a specified range.
         
