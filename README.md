@@ -105,7 +105,10 @@ pools = client.pools.list_by_dex("ethereum", "uniswap_v3", limit=5)
 for p in pools.pools:
     print(p.volume_usd)
 
-# After:
+# After: paging past the first page needs an API key (a free key pages
+# without limit), so the client used here is constructed from
+# DEXPAPRIKA_API_KEY rather than left keyless.
+client = DexPaprikaClient()
 pools = client.pools.list_by_dex("ethereum", "uniswap_v3", limit=5)
 for p in pools.results:          # .pools still works as an alias
     print(p.id, p.volume_usd_24h)
@@ -134,6 +137,10 @@ if pools.has_next_page:
 - An unknown token address returns an empty result set, not an error.
 
 ```python
+# Paging past the first page needs an API key (a free key pages without
+# limit), so the client used here is constructed from DEXPAPRIKA_API_KEY
+# rather than left keyless.
+client = DexPaprikaClient()
 pools = client.tokens.get_pools("ethereum", "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", limit=5)
 for p in pools.results:
     print(p.id, p.volume_usd_24h)
