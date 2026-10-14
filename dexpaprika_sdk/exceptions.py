@@ -13,6 +13,8 @@ callers (and their logs) see both the API's own message and the replacement
 without having to inspect the raw response body.
 """
 
+from requests.exceptions import HTTPError
+
 
 class DexPaprikaError(Exception):
     """Base class for all typed errors raised by the DexPaprika SDK."""
@@ -42,3 +44,36 @@ class DeprecatedEndpointError(DexPaprikaError):
         if replacement:
             full_message = f"{full_message}. Use {replacement} instead."
         super().__init__(full_message)
+
+
+class ApiHTTPError(HTTPError):
+    """HTTPError carrying the API's own error fields, when the body has them.
+
+    Some error bodies include ``error`` (a machine-readable code, e.g.
+    "plan_required"), ``required_tier`` (the plan that lifts the restriction)
+    and ``param`` (the request parameter that triggered it), for example the
+    403 a keyless caller gets for paging a search endpoint past the first
+    page::
+
+        {"error": "plan_required", "tier": "keyless", "required_tier": "free",
+         "param": "cursor", "message": "..."}
+
+    Any error response without these fields (a plain 400 or 404 with just a
+    "message") raises this with all three set to None, so callers never have
+    to special-case which errors carry them.
+
+    Still a ``requests.exceptions.HTTPError``, so existing
+    ``except requests.exceptions.HTTPError:`` handlers keep working unchanged.
+
+    Attributes:
+        error_code: The body's "error" field (named to avoid shadowing the
+            builtin), or None.
+        required_tier: The body's "required_tier" field, or None.
+        param: The body's "param" field, or None.
+    """
+
+    def __init__(self, message, response=None, error_code=None, required_tier=None, param=None):
+        self.error_code = error_code
+        self.required_tier = required_tier
+        self.param = param
+        super().__init__(message, response=response)

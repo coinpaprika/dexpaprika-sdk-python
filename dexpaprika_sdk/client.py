@@ -11,7 +11,7 @@ from .api.tokens import TokensAPI
 from .api.search import SearchAPI
 from .api.utils import UtilsAPI
 from .api.dexes import DexesAPI
-from .exceptions import DeprecatedEndpointError
+from .exceptions import DeprecatedEndpointError, ApiHTTPError
 
 
 # Anything that would let a value break out of a header. A key carrying these
@@ -183,13 +183,19 @@ class DexPaprikaClient:
         )
 
     @staticmethod
-    def _api_message(response) -> Optional[str]:
-        """Return the top-level ``message`` of a JSON error body, or None."""
+    def _api_error_body(response) -> Optional[Dict[str, Any]]:
+        """Return the parsed JSON error body as a dict, or None if it isn't one."""
         try:
             body = response.json()
         except Exception:
             return None
-        if not isinstance(body, dict):
+        return body if isinstance(body, dict) else None
+
+    @staticmethod
+    def _api_message(response) -> Optional[str]:
+        """Return the top-level ``message`` of a JSON error body, or None."""
+        body = DexPaprikaClient._api_error_body(response)
+        if body is None:
             return None
         message = body.get("message")
         if isinstance(message, str) and message.strip():
@@ -235,13 +241,21 @@ class DexPaprikaClient:
                         raise deprecation
                     # Same exception type and response as raise_for_status, but
                     # carrying what the API said: an OHLCV 403 names the plan that
-                    # lifts the limit, a 400 names the bad parameter.
+                    # lifts the limit, a 400 names the bad parameter. When the
+                    # body also carries error/required_tier/param (e.g. the 403
+                    # a keyless caller gets for paging a search endpoint), those
+                    # are exposed as attributes too; a body without them leaves
+                    # all three None.
                     api_message = self._api_message(response)
                     if api_message is not None:
                         kind = "Client" if status_code < 500 else "Server"
-                        raise HTTPError(
+                        error_body = self._api_error_body(response) or {}
+                        raise ApiHTTPError(
                             f"{status_code} {kind} Error: {api_message} for url: {response.url}",
                             response=response,
+                            error_code=error_body.get("error"),
+                            required_tier=error_body.get("required_tier"),
+                            param=error_body.get("param"),
                         )
                 response.raise_for_status()
 
