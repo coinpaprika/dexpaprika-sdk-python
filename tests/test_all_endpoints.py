@@ -4,6 +4,7 @@ import sys
 import os
 import time
 import pytest
+import requests
 
 # Add the parent directory to the path so we can import the package
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
@@ -188,13 +189,20 @@ def test_pools_get_ohlcv(client, test_data):
     assert ohlcv is not None
 
 def test_pools_get_transactions(client, test_data):
-    transactions = client.pools.get_transactions(
-        test_data["test_pool_network"], 
-        test_data["test_pool_address"], 
-        limit=5
-    )
-    assert transactions is not None
-    assert hasattr(transactions, 'transactions')
+    """Pool transactions need a Dev, Pro or Enterprise plan since 2026-09-30.
+    The nightly run has no key, so the API refuses with 403 plan_required.
+    What this checks is that the SDK surfaces that refusal with the API's own
+    message instead of a bare status."""
+    if os.environ.get("DEXPAPRIKA_API_KEY"):
+        pytest.skip("covers the keyless refusal; with a key set the answer depends on its plan")
+    with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+        client.pools.get_transactions(
+            test_data["test_pool_network"],
+            test_data["test_pool_address"],
+            limit=5
+        )
+    assert excinfo.value.response.status_code == 403
+    assert "plan" in str(excinfo.value)
 
 # Tokens API tests
 def test_tokens_get_details(client, test_data):
