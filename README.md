@@ -164,7 +164,7 @@ canonical ones automatically). What changed is the response shape:
   but is ignored; pass `cursor=...` to page through results.
 - Pool items: `id` is the pool address, volume is split into
   `volume_usd_24h` / `volume_usd_7d` / `volume_usd_30d`, transactions are
-  `transactions_24h`, and price moves are `price_change_percentage_5m/1h/6h/24h`.
+  `transactions_24h`, and price moves are `price_change_percentage_5m/1h/6h/24h/48h`.
 - Token items are flat and identified by `address` (no `name`/`symbol`, no nested
   time-interval objects): `price_usd`, `volume_usd_24h/7d/30d`, `liquidity_usd`,
   `fdv_usd`, `txns_24h`, `price_change_percentage_24h`.
@@ -327,10 +327,10 @@ for pool in filtered.results:
 
 #### Sort and filter by price move
 
-Pools can be sorted and filtered on four price-change windows: `24h`, `6h`, `1h`
-and `5m`. Pass the window to `sort_by` / `order_by`, or bound it with the
-matching `_min` / `_max` filter. Tokens support the 24h window only; the table
-further down has the exact split.
+Pools can be sorted and filtered on five price-change windows: `48h`, `24h`,
+`6h`, `1h` and `5m`. Pass the window to `sort_by` / `order_by`, or bound it with
+the matching `_min` / `_max` filter. Tokens support the 24h window only; the
+table further down has the exact split.
 
 ```python
 # Biggest 5-minute movers on Ethereum
@@ -363,10 +363,10 @@ spiking = client.pools.filter(
 )
 ```
 
-Available bounds on `pools.filter()`: `price_change_percentage_24h_min` /
-`_max`, `price_change_percentage_6h_min` / `_max`,
-`price_change_percentage_1h_min` / `_max`, `price_change_percentage_5m_min` /
-`_max`.
+Available bounds on `pools.filter()`: `price_change_percentage_48h_min` /
+`_max`, `price_change_percentage_24h_min` / `_max`,
+`price_change_percentage_6h_min` / `_max`, `price_change_percentage_1h_min` /
+`_max`, `price_change_percentage_5m_min` / `_max`.
 
 The token side is narrower, and the line falls in a different place for sorting
 than for filtering:
@@ -374,21 +374,21 @@ than for filtering:
 | | pools | tokens |
 |---|---|---|
 | sort by `price_change_percentage_24h` | yes | yes |
-| sort by `_6h`, `_1h`, `_5m` | yes | no, HTTP 400 |
+| sort by `_48h`, `_6h`, `_1h`, `_5m` | yes | no, HTTP 400 |
 | filter on `price_change_percentage_24h_min` / `_max` | yes | yes |
-| filter on `_6h`, `_1h`, `_5m` bounds | yes | 200, then ignored |
+| filter on `_48h`, `_6h`, `_1h`, `_5m` bounds | yes | 200, then ignored |
 
-So `tokens.get_top()` and `tokens.filter()` take the 24h window and nothing
-shorter. `/networks/{network}/tokens/search` rejects the short windows as sort
-fields with HTTP 400, and token rows carry no 5m field at all. A short window
-handed to a token method as `order_by` falls back to `volume_usd_24h` rather
-than failing.
+So `tokens.get_top()` and `tokens.filter()` take the 24h window only, while
+pools support `48h`, `24h`, `6h`, `1h` and `5m`. `/networks/{network}/tokens/search`
+rejects the 48h, 6h, 1h and 5m sort fields with HTTP 400, and token rows carry
+no 5m field at all. One of those windows handed to a token method as `order_by`
+falls back to `volume_usd_24h` rather than failing.
 
-The short bounds are a nastier case on the filter side. `/tokens/search` answers
+Those four bounds are a nastier case on the filter side. `/tokens/search` answers
 200 to `price_change_percentage_6h_min` and then ignores it, returning a full
-unfiltered page that looks filtered, so `tokens.filter()` does not accept those
-three at all. Passing one raises `TypeError` in your process instead of handing
-you wrong rows.
+unfiltered page that looks filtered, so `tokens.filter()` does not accept any
+of the four at all. Passing one raises `TypeError` in your process instead of
+handing you wrong rows.
 
 ```python
 # Tokens up at least 20% on the day, ordered by volume
