@@ -26,9 +26,9 @@ T = TypeVar('T')
 # be copied into TOKEN_SORT_CANONICAL below.
 POOL_SORT_CANONICAL: Set[str] = {
     "volume_usd_24h", "volume_usd_7d", "volume_usd_30d", "liquidity_usd",
-    "txns_24h", "created_at", "price_usd", "price_change_percentage_24h",
-    "price_change_percentage_6h", "price_change_percentage_1h",
-    "price_change_percentage_5m",
+    "txns_24h", "created_at", "price_usd", "price_change_percentage_48h",
+    "price_change_percentage_24h", "price_change_percentage_6h",
+    "price_change_percentage_1h", "price_change_percentage_5m",
 }
 
 # Legacy sort-field value -> canonical /pools/search value.

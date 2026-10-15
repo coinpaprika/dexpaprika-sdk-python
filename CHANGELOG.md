@@ -5,6 +5,22 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Pools gained a `48h` price-change window, matching the `24h`, `6h`, `1h` and
+  `5m` windows already supported. `pools.list_by_network()`, `pools.list_by_dex()`
+  and `pools.filter()` accept `order_by="price_change_percentage_48h"`;
+  `pools.filter()` also takes `price_change_percentage_48h_min` /
+  `price_change_percentage_48h_max`. `PoolSearchResult` now carries a
+  `price_change_percentage_48h` field. This window is pool-only, same as the
+  6h, 1h and 5m ones; token search is unchanged.
+
+### Fixed
+- `order_by="price_change_percentage_48h"` on `pools.list_by_network()` was
+  silently mapped to `volume_usd_24h` because the field was missing from the
+  pool sort allowlist, so a 48h sort request actually sorted by 24h volume.
+
 ## [0.13.0] - 2026-10-14
 
 ### Added

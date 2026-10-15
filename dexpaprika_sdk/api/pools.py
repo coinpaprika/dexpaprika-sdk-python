@@ -98,8 +98,8 @@ class PoolsAPI(BaseAPI):
             sort: Sort order ("asc" or "desc")
             order_by: Field to order by (legacy values such as "volume_usd" are
                 mapped to canonical search fields automatically). Pools can also
-                be ordered by "price_change_percentage_24h", "..._6h", "..._1h"
-                and "..._5m"; those windows exist on pools only.
+                be ordered by "price_change_percentage_48h", "..._24h", "..._6h",
+                "..._1h" and "..._5m"; those windows exist on pools only.
             cursor: Cursor for cursor-based pagination
 
         Returns:
@@ -130,7 +130,7 @@ class PoolsAPI(BaseAPI):
             data['results'] = []
 
         return PoolSearchResponse(**data)
-    
+
     def list_by_dex(
         self,
         network_id: str,
@@ -342,6 +342,8 @@ class PoolsAPI(BaseAPI):
         created_after: Optional[Union[int, str]] = None,
         created_before: Optional[Union[int, str]] = None,
         cursor: Optional[str] = None,
+        price_change_percentage_48h_min: Optional[float] = None,
+        price_change_percentage_48h_max: Optional[float] = None,
         price_change_percentage_24h_min: Optional[float] = None,
         price_change_percentage_24h_max: Optional[float] = None,
         price_change_percentage_6h_min: Optional[float] = None,
@@ -369,8 +371,9 @@ class PoolsAPI(BaseAPI):
                 cursor-paginated, so this value is ignored for the request.
             limit: Number of items per page (max 100)
             sort_by: Field to sort by (e.g., "volume_24h", "liquidity_usd", "txns_24h",
-                "created_at", "price_change_percentage_24h", "price_change_percentage_6h",
-                "price_change_percentage_1h", "price_change_percentage_5m")
+                "created_at", "price_change_percentage_48h", "price_change_percentage_24h",
+                "price_change_percentage_6h", "price_change_percentage_1h",
+                "price_change_percentage_5m")
             sort_dir: Sort direction ("asc" or "desc")
             volume_24h_min: Minimum 24h volume in USD
             volume_24h_max: Maximum 24h volume in USD
@@ -382,6 +385,8 @@ class PoolsAPI(BaseAPI):
             created_after: Only pools created at or after this time: a relative offset from now such as "-24h" or "-7d", Unix seconds, RFC3339 or YYYY-MM-DD
             created_before: Only pools created at or before this time, same formats as created_after
             cursor: Cursor for cursor-based pagination
+            price_change_percentage_48h_min: Minimum 48h price change, in percent
+            price_change_percentage_48h_max: Maximum 48h price change, in percent
             price_change_percentage_24h_min: Minimum 24h price change, in percent
             price_change_percentage_24h_max: Maximum 24h price change, in percent
             price_change_percentage_6h_min: Minimum 6h price change, in percent
@@ -422,7 +427,9 @@ class PoolsAPI(BaseAPI):
             "created_before": created_before,
             # Price-change windows. These names are already canonical, so they
             # pass through map_filter_params untouched. The 24h pair also works
-            # on /tokens/search; the 6h, 1h and 5m bounds are pool-only.
+            # on /tokens/search; the 48h, 6h, 1h and 5m bounds are pool-only.
+            "price_change_percentage_48h_min": price_change_percentage_48h_min,
+            "price_change_percentage_48h_max": price_change_percentage_48h_max,
             "price_change_percentage_24h_min": price_change_percentage_24h_min,
             "price_change_percentage_24h_max": price_change_percentage_24h_max,
             "price_change_percentage_6h_min": price_change_percentage_6h_min,

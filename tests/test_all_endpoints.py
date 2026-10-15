@@ -296,10 +296,11 @@ def test_pools_filter_multiple_params(client, test_data):
 # unknown filter name and still answers 200 with a full result set. Both
 # failures look like a successful call returning the wrong pools.
 #
-# The three short windows below are the pool-only ones. The 24h window is not:
+# The four windows below are the pool-only ones. The 24h window is not:
 # /tokens/search sorts and filters on it too.
 
 PRICE_CHANGE_WINDOWS = [
+    "price_change_percentage_48h",
     "price_change_percentage_6h",
     "price_change_percentage_1h",
     "price_change_percentage_5m",
@@ -401,8 +402,9 @@ def test_pools_filter_negative_price_change(client, test_data):
 def test_short_price_change_windows_are_pool_only(client, test_data):
     """Pin the sort-side asymmetry so a later sweep does not add these to tokens.
 
-    /tokens/search returns 400 for the 6h/1h/5m windows and token rows carry no
-    5m field at all. The SDK keeps them out of the token sort set on purpose.
+    /tokens/search returns 400 for the 48h/6h/1h/5m windows and token rows
+    carry no 5m field at all. The SDK keeps them out of the token sort set on
+    purpose.
     The 24h window is not in that group: it sorts on both endpoints, so
     TOKEN_SORT_CANONICAL carries it and this test leaves it alone.
     """

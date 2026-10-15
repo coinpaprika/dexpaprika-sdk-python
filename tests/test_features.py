@@ -283,6 +283,9 @@ class TestDeprecationHandling(unittest.TestCase):
 # Trimmed from a live GET /networks/ethereum/pools/search?limit=2&dex_name=curve
 # captured 2026-08-05. Field names are copied off the wire, not invented: there
 # is no bare volume_usd and no page_info on this endpoint.
+# price_change_percentage_48h was added later and confirmed on a separate live
+# call on 2026-10-15; its value here is spliced in, not part of the original
+# capture.
 LIVE_DEX_SEARCH_BODY = {
     "results": [
         {
@@ -299,6 +302,7 @@ LIVE_DEX_SEARCH_BODY = {
             "price_change_percentage_1h": 0.02422482089565938,
             "price_change_percentage_6h": 0.009802157529374174,
             "price_change_percentage_24h": 0.007018797950998323,
+            "price_change_percentage_48h": -0.014237590128168716,
             "fee": None,
             "volume_usd_7d": 31781851.73428885,
             "volume_usd_30d": 136889876.39037386,
@@ -379,6 +383,7 @@ class TestDexPoolsMigration(unittest.TestCase):
         self.assertEqual(pool.volume_usd_24h, 15883391.558251368)
         self.assertEqual(pool.transactions_24h, 289)
         self.assertEqual(pool.price_change_percentage_6h, 0.009802157529374174)
+        self.assertEqual(pool.price_change_percentage_48h, -0.014237590128168716)
         # The removed field names must not reappear on the model.
         self.assertFalse(hasattr(pool, "volume_usd"))
         self.assertFalse(hasattr(pool, "transactions"))
@@ -412,7 +417,7 @@ class TestPriceChangeWindowParams(unittest.TestCase):
     explicitly, which means a single typo silently drops one.
     """
 
-    WINDOWS = ["24h", "6h", "1h", "5m"]
+    WINDOWS = ["48h", "24h", "6h", "1h", "5m"]
 
     def setUp(self):
         """Set up test environment."""
@@ -476,7 +481,7 @@ class TestPriceChangeWindowParams(unittest.TestCase):
         An unmapped sort field falls back to volume_usd_24h before the request
         is built, so the failure mode is a 200 sorted by the wrong column.
         """
-        for window in ("6h", "1h", "5m"):
+        for window in ("48h", "6h", "1h", "5m"):
             field = f"price_change_percentage_{window}"
             params = self._capture_params(
                 lambda: self.client.pools.list_by_network("ethereum", order_by=field)
@@ -490,7 +495,7 @@ class TestPriceChangeWindowParams(unittest.TestCase):
         token rows carry no 5m field. Forwarding one would turn a working call
         into an error.
         """
-        for window in ("6h", "1h", "5m"):
+        for window in ("48h", "6h", "1h", "5m"):
             field = f"price_change_percentage_{window}"
             params = self._capture_params(
                 lambda: self.client.tokens.get_top("ethereum", order_by=field)
