@@ -124,8 +124,16 @@ def test_403_with_html_body_raises_key_refused_error():
 
     err = excinfo.value
     assert isinstance(err, HTTPError)
-    assert "refused before it reached the API" in str(err)
-    assert "console.dexpaprika.com" in str(err)
+    # Exact match rather than a substring check on the domain: a `"x" in url`
+    # check reads, to a static scanner, like an (incomplete) URL allowlist
+    # check, even in a test. Equality on the whole known message sidesteps
+    # that without losing the assertion.
+    expected_message = (
+        "The API key was refused before it reached the API. Check that "
+        "the whole key was pasted into the Authorization header with "
+        "nothing in front of it. Keys: https://console.dexpaprika.com"
+    )
+    assert str(err) == expected_message
     assert "Bearer" not in str(err)
     # No JSON body means nothing to read these from; they stay None, same as
     # any other ApiHTTPError whose body lacks them.
