@@ -5,9 +5,20 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.14.0] - 2026-10-16
 
 ### Added
+- Paging past the first page of `/pools/search` and `/tokens/search` (and
+  their network and dex scoped variants, including the deprecated
+  `pools.list_by_dex()` and `tokens.get_pools()` which proxy search) now needs
+  an API key. Without one, a `cursor` request gets a 403 naming the required
+  tier; any key, a free one included, removes the limit. `ApiHTTPError` (a
+  `requests.exceptions.HTTPError` subclass) exposes the body's `error`,
+  `required_tier` and `param` fields as attributes, so an
+  `except requests.exceptions.HTTPError:` handler can read which plan is
+  needed and which parameter triggered it. An error body without these
+  fields leaves all three `None`, so existing handlers keep working
+  unchanged.
 - Pools gained a `48h` price-change window, matching the `24h`, `6h`, `1h` and
   `5m` windows already supported. `pools.list_by_network()`, `pools.list_by_dex()`
   and `pools.filter()` accept `order_by="price_change_percentage_48h"`;
@@ -20,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `order_by="price_change_percentage_48h"` on `pools.list_by_network()` was
   silently mapped to `volume_usd_24h` because the field was missing from the
   pool sort allowlist, so a 48h sort request actually sorted by 24h volume.
+- A key sent to `api-pro.dexpaprika.com` without the `api_` prefix it was
+  issued with got a Cloudflare 403 page: an HTML body, not JSON. The client
+  reported this as a bare "403 Forbidden" with no indication of what went
+  wrong. It now raises a dedicated error, `KeyRefusedError`, saying plainly
+  that the API key was refused before it reached the API, with a pointer to
+  check what landed in the request and where to find keys. A 403 whose body
+  is JSON, such as `plan_required`, is unaffected and keeps its existing
+  handling.
 
 ## [0.13.0] - 2026-10-14
 

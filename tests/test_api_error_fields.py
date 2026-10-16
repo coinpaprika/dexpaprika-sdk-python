@@ -23,7 +23,7 @@ from requests.exceptions import HTTPError
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from dexpaprika_sdk import DexPaprikaClient
-from dexpaprika_sdk.exceptions import ApiHTTPError
+from dexpaprika_sdk.exceptions import ApiHTTPError, KeyRefusedError
 
 
 def _response(status, body):
@@ -32,6 +32,17 @@ def _response(status, body):
     response.url = "https://api.dexpaprika.com/networks/ethereum/pools/search"
     response.content = b"body"
     response.json.return_value = body
+    response.raise_for_status.side_effect = HTTPError(f"{status} error", response=response)
+    return response
+
+
+def _html_response(status, html):
+    """A 403 answered by Cloudflare, not the API: HTML body, no JSON to parse."""
+    response = MagicMock()
+    response.status_code = status
+    response.url = "https://api-pro.dexpaprika.com/networks/ethereum/pools/search"
+    response.content = html.encode()
+    response.json.side_effect = ValueError("No JSON object could be decoded")
     response.raise_for_status.side_effect = HTTPError(f"{status} error", response=response)
     return response
 
@@ -95,3 +106,56 @@ def test_raised_exception_is_still_an_http_error_for_existing_callers():
             assert False, "expected an HTTPError"
         except HTTPError as e:
             assert e.error_code == "plan_required"
+
+
+def test_403_with_html_body_raises_key_refused_error():
+    """Cloudflare's block page in front of api-pro.dexpaprika.com: HTML, not JSON.
+
+    This is the case that used to surface as a bare "403 Forbidden" with no
+    guidance. It must fail before the client learns to recognise it and pass
+    once it does.
+    """
+    html = "<html>Sorry, you have been blocked</html>"
+    client = DexPaprikaClient(api_key="not_the_right_prefix", base_url="https://api-pro.dexpaprika.com")
+
+    with patch.object(client.session, "request", return_value=_html_response(403, html)):
+        with pytest.raises(KeyRefusedError) as excinfo:
+            client.get("/networks/ethereum/pools/search")
+
+    err = excinfo.value
+    assert isinstance(err, HTTPError)
+    # Exact match rather than a substring check on the domain: a `"x" in url`
+    # check reads, to a static scanner, like an (incomplete) URL allowlist
+    # check, even in a test. Equality on the whole known message sidesteps
+    # that without losing the assertion.
+    expected_message = (
+        "The API key was refused before it reached the API. Check that "
+        "the whole key was pasted into the Authorization header with "
+        "nothing in front of it. Keys: https://console.dexpaprika.com"
+    )
+    assert str(err) == expected_message
+    assert "Bearer" not in str(err)
+    # No JSON body means nothing to read these from; they stay None, same as
+    # any other ApiHTTPError whose body lacks them.
+    assert err.error_code is None
+    assert err.required_tier is None
+    assert err.param is None
+
+
+def test_403_with_json_body_is_unaffected_by_the_html_fix():
+    """A 403 WITH a JSON body (e.g. plan_required) must keep its current handling."""
+    body = {
+        "error": "plan_required",
+        "required_tier": "free",
+        "param": "cursor",
+        "message": "Search results beyond the first page require an API key.",
+    }
+    client = DexPaprikaClient()
+
+    with patch.object(client.session, "request", return_value=_response(403, body)):
+        with pytest.raises(ApiHTTPError) as excinfo:
+            client.get("/networks/ethereum/pools/search")
+
+    err = excinfo.value
+    assert not isinstance(err, KeyRefusedError)
+    assert err.error_code == "plan_required"
