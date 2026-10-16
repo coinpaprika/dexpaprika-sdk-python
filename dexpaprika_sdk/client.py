@@ -11,7 +11,7 @@ from .api.tokens import TokensAPI
 from .api.search import SearchAPI
 from .api.utils import UtilsAPI
 from .api.dexes import DexesAPI
-from .exceptions import DeprecatedEndpointError, ApiHTTPError
+from .exceptions import DeprecatedEndpointError, ApiHTTPError, KeyRefusedError
 
 
 # Anything that would let a value break out of a header. A key carrying these
@@ -257,6 +257,14 @@ class DexPaprikaClient:
                             required_tier=error_body.get("required_tier"),
                             param=error_body.get("param"),
                         )
+                    # A 403 whose body is not JSON never came from the API: it is
+                    # Cloudflare in front of api-pro.dexpaprika.com rejecting the
+                    # request before it reached our app (an HTML block page, no
+                    # "message" field to read above). A 403 WITH a JSON body (e.g.
+                    # plan_required) was already raised as ApiHTTPError just above
+                    # and never reaches this branch.
+                    if status_code == 403 and self._api_error_body(response) is None:
+                        raise KeyRefusedError(response=response)
                 response.raise_for_status()
 
                 # return data

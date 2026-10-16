@@ -77,3 +77,29 @@ class ApiHTTPError(HTTPError):
         self.required_tier = required_tier
         self.param = param
         super().__init__(message, response=response)
+
+
+class KeyRefusedError(ApiHTTPError):
+    """Raised when a 403 response body is not JSON: the edge rejected the key, not the API.
+
+    api-pro.dexpaprika.com sits behind Cloudflare, which answers with an HTML
+    page (status 403, no DexPaprika JSON body) when the Authorization header
+    is missing, empty, or does not carry the whole key exactly as issued. The
+    request never reached the API, so there is no "error" / "required_tier" /
+    "param" to read; those attributes stay None here, same as any other
+    ApiHTTPError whose body does not carry them.
+
+    A 403 whose body IS JSON (for example "plan_required") is a different,
+    unrelated case and keeps being raised as a plain ApiHTTPError.
+
+    Still a ``requests.exceptions.HTTPError``, so existing
+    ``except requests.exceptions.HTTPError:`` handlers keep working unchanged.
+    """
+
+    def __init__(self, response=None):
+        message = (
+            "The API key was refused before it reached the API. Check that "
+            "the whole key was pasted into the Authorization header with "
+            "nothing in front of it. Keys: https://console.dexpaprika.com"
+        )
+        super().__init__(message, response=response)
