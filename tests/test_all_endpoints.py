@@ -230,8 +230,12 @@ def test_tokens_get_pools(client, test_data):
         token_ids = [t.id for t in pool.tokens]
         assert test_data["test_token_address"] in token_ids
 
-    # Follow the cursor to the next page
+    # Follow the cursor to the next page. Paging past the first page now needs
+    # an API key; without DEXPAPRIKA_API_KEY set, this would 403 rather than
+    # exercise pagination, so skip just this step.
     if token_pools.has_next_page and token_pools.next_cursor:
+        if not os.environ.get("DEXPAPRIKA_API_KEY"):
+            pytest.skip("paging past the first page needs an API key (DEXPAPRIKA_API_KEY not set)")
         next_page = client.tokens.get_pools(
             test_data["test_pool_network"],
             test_data["test_token_address"],

@@ -55,6 +55,9 @@ class PoolsAPI(BaseAPI):
         Raises:
             ValueError: If any parameter is invalid
 
+        Without an API key you get the first page; paging with cursor needs a
+        key (a free key pages without limit).
+
         Migration Examples:
             # Before (deprecated):
             pools = client.pools.list()
@@ -107,6 +110,9 @@ class PoolsAPI(BaseAPI):
 
         Raises:
             ValueError: If any parameter is invalid
+
+        Without an API key you get the first page; paging with cursor needs a
+        key (a free key pages without limit).
         """
         # Validate parameters
         self._validate_required("network_id", network_id)
@@ -169,6 +175,9 @@ class PoolsAPI(BaseAPI):
 
         Raises:
             ValueError: If any parameter is invalid
+
+        Without an API key you get the first page; paging with cursor needs a
+        key (a free key pages without limit).
         """
         # Validate parameters
         self._validate_required("network_id", network_id)
@@ -401,6 +410,9 @@ class PoolsAPI(BaseAPI):
 
         Raises:
             ValueError: If any parameter is invalid
+
+        Without an API key you get the first page; paging with cursor needs a
+        key (a free key pages without limit).
         """
         self._validate_required("network_id", network_id)
         self._validate_range("page", page, min_val=1)
