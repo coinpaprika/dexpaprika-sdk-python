@@ -28,7 +28,7 @@ from .models import (
     IndicatorDataPoint, IndicatorResponse,
 )
 
-__version__ = "0.14.1"
+__version__ = "0.14.2"
 __all__ = [
     "DexPaprikaClient",
     # Exceptions
