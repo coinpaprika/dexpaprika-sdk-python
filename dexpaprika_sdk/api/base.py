@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING, Callable, TypeVar, Set
+from collections import OrderedDict
 import hashlib
 import json
 import re
@@ -164,41 +165,57 @@ VALID_INDICATOR_INTERVAL_VALUES: Set[str] = {
 
 class CacheEntry:
     """Class representing a cached response with an expiration time."""
-    
-    def __init__(self, data: Any, expires_at: Optional[datetime] = None):
+
+    def __init__(self, data: Any, expires_at: Optional[datetime] = None, endpoint: Optional[str] = None):
         """
         Initialize a new cache entry.
-        
+
         Args:
             data: The data to cache
             expires_at: The time when the cache entry expires
+            endpoint: The endpoint this entry was cached for, kept alongside the
+                hashed cache key so clear_cache(prefix) can match against the
+                real endpoint instead of its md5 digest.
         """
         self.data = data
         self.expires_at = expires_at
-        
+        self.endpoint = endpoint
+
     def is_expired(self) -> bool:
         """
         Check if the cache entry has expired.
-        
+
         Returns:
             True if the cache entry has expired, False otherwise
         """
         return self.expires_at is not None and datetime.now() > self.expires_at
 
 
+# Default cap on how many distinct (endpoint, params) responses a single API
+# service keeps at once. Without a cap, a caller forwarding user-chosen search
+# queries or ids builds one entry per distinct value for the life of the
+# process. Picked generously above what a normal integration needs, small
+# enough to bound memory under abuse.
+DEFAULT_MAX_CACHE_ENTRIES = 256
+
+
 class BaseAPI:
     """Base class for all API service classes."""
 
-    def __init__(self, client: "DexPaprikaClient"):
+    def __init__(self, client: "DexPaprikaClient", max_cache_entries: int = DEFAULT_MAX_CACHE_ENTRIES):
         """
         Initialize a new API service.
 
         Args:
             client: The DexPaprika client instance
+            max_cache_entries: Maximum number of distinct responses this service
+                caches at once. Oldest unused entries are evicted first (LRU)
+                once this limit is reached.
         """
         self.client = client
-        self._cache: Dict[str, CacheEntry] = {}  # TTL-based cache
-        
+        self.max_cache_entries = max_cache_entries
+        self._cache: "OrderedDict[str, CacheEntry]" = OrderedDict()  # TTL-based, size-bounded LRU cache
+
         # Default TTLs for different types of data
         self._cache_ttls = {
             "networks": timedelta(hours=24),  # Network and DEX lists rarely change
@@ -277,26 +294,48 @@ class BaseAPI:
         """
         if skip_cache:
             return self.client.get(endpoint, params=params)
-            
+
         cache_key = self._get_cache_key(endpoint, params)
         cache_entry = self._cache.get(cache_key)
-        
-        # Return cached data if valid
-        if cache_entry and not cache_entry.is_expired():
-            return cache_entry.data
-            
+
+        if cache_entry is not None:
+            if not cache_entry.is_expired():
+                # Mark as most-recently-used so a hot entry survives eviction.
+                self._cache.move_to_end(cache_key)
+                return cache_entry.data
+            # Expired: drop it now rather than leaving it to occupy a slot
+            # until something else reads or evicts it.
+            del self._cache[cache_key]
+
         # Get fresh data
         result = self.client.get(endpoint, params=params)
-        
+
         # Cache the result with appropriate TTL
         if ttl is None:
             ttl = self._get_ttl(endpoint)
-            
+
         expires_at = datetime.now() + ttl
-        self._cache[cache_key] = CacheEntry(result, expires_at)
-            
+        self._store(cache_key, CacheEntry(result, expires_at, endpoint=endpoint))
+
         return result
-    
+
+    def _store(self, cache_key: str, entry: "CacheEntry") -> None:
+        """Insert a cache entry, then enforce the size bound (LRU) and TTL.
+
+        Expired entries are swept first so they never count against
+        max_cache_entries between reads; what remains beyond the limit is
+        trimmed from the least-recently-used end.
+        """
+        # Drop and re-insert so the key lands at the most-recently-used end.
+        self._cache.pop(cache_key, None)
+        self._cache[cache_key] = entry
+
+        for key in [k for k, v in self._cache.items() if v.is_expired()]:
+            del self._cache[key]
+
+        while len(self._cache) > self.max_cache_entries:
+            self._cache.popitem(last=False)  # evict least-recently-used
+
     def _post(self, endpoint: str, data: Dict[str, Any], params: Optional[Dict[str, Any]] = None) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """
         Make a POST request to the specified endpoint.
@@ -377,16 +416,17 @@ class BaseAPI:
             endpoint_prefix: Optional prefix to filter which cache entries to clear
         """
         if endpoint_prefix:
-            # Get cache keys from the original endpoints that contain the prefix
-            keys_to_remove = []
-            for key in list(self._cache.keys()):
-                cache_entry = self._cache[key]
-                if endpoint_prefix in key:
-                    keys_to_remove.append(key)
-                    
+            # Match against the stored endpoint, not the cache key: the key is
+            # an md5 digest of endpoint + params, so endpoint_prefix never
+            # matched anything when compared against it directly.
+            keys_to_remove = [
+                key for key, cache_entry in self._cache.items()
+                if cache_entry.endpoint is not None and endpoint_prefix in cache_entry.endpoint
+            ]
+
             # Remove the entries
             for key in keys_to_remove:
                 del self._cache[key]
         else:
             # Clear the entire cache
-            self._cache.clear() 
+            self._cache.clear()

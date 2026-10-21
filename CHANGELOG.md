@@ -5,6 +5,21 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.2] - 2026-10-21
+
+### Security
+- The per-service response cache is now bounded. It used to be a plain dict:
+  every successful GET was kept under an md5 key with a TTL but no cap on how
+  many distinct keys could pile up, and an expired entry stayed in memory
+  until something happened to read or clear it. An application that forwards
+  caller-chosen values (search queries, ids) into the SDK could grow that
+  cache without bound for the life of the process. Each service now keeps at
+  most `max_cache_entries` (default 256, settable per service) responses,
+  evicting the least-recently-used entry first, and sweeps expired entries on
+  every insert. `clear_cache(endpoint_prefix)` also now matches against the
+  real endpoint instead of the hashed cache key, so passing a prefix clears
+  what it says it clears.
+
 ## [0.14.1] - 2026-10-21
 
 ### Security
