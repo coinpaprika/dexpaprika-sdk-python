@@ -5,6 +5,18 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-10-21
+
+### Security
+- Network ids, pool addresses and token addresses are now checked before they
+  go into the request path. A value containing `/`, `\`, `?`, `#`, `%`,
+  whitespace or a control character, or one that is empty, `.` or `..`, raises
+  `ValueError` and no request is sent. Until now such a value was placed in the
+  URL as given, so an application that passed user input to the SDK could be
+  made to send its API key to a different endpoint or with a different query,
+  for example `pools.get_details("ethereum", "../../../stats")`. Real ids,
+  including Sui and Aptos ids with `::` and TON addresses, are sent unchanged.
+
 ## [0.14.0] - 2026-10-16
 
 ### Added
