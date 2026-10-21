@@ -2,6 +2,7 @@ from typing import List, Literal, Optional, Dict, Any, Set, Union
 import warnings
 
 from .base import (
+    path_segment,
     BaseAPI, map_pool_sort_field, map_filter_params, POOL_FILTER_PARAM_MAP,
     VALID_INDICATOR_VALUES, VALID_INDICATOR_INTERVAL_VALUES,
 )
@@ -129,7 +130,7 @@ class PoolsAPI(BaseAPI):
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/pools/search", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/search", params=params)
 
         # ensure results exists
         if 'results' not in data:
@@ -196,7 +197,7 @@ class PoolsAPI(BaseAPI):
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/pools/search", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/search", params=params)
 
         # ensure results exists
         if 'results' not in data:
@@ -233,7 +234,7 @@ class PoolsAPI(BaseAPI):
         params = {"inversed": "true" if inversed else None}
         params = self._clean_params(params)
         
-        data = self._get(f"/networks/{network_id}/pools/{pool_address}", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/{path_segment('pool_address', pool_address)}", params=params)
         return PoolDetails(**data)
     
     def get_ohlcv(
@@ -287,7 +288,7 @@ class PoolsAPI(BaseAPI):
         }
         params = self._clean_params(params)
         
-        data = self._get(f"/networks/{network_id}/pools/{pool_address}/ohlcv", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/{path_segment('pool_address', pool_address)}/ohlcv", params=params)
         return [OHLCVRecord(**item) for item in data]
     
     def get_transactions(
@@ -331,7 +332,7 @@ class PoolsAPI(BaseAPI):
         params = {"page": page, "limit": limit, "cursor": cursor, "from": from_timestamp, "to": to_timestamp}
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/pools/{pool_address}/transactions", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/{path_segment('pool_address', pool_address)}/transactions", params=params)
         return TransactionsResponse(**data)
 
     def filter(
@@ -454,7 +455,7 @@ class PoolsAPI(BaseAPI):
         params.update(map_filter_params(filters, POOL_FILTER_PARAM_MAP))
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/pools/search", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/search", params=params)
 
         if 'results' not in data:
             data['results'] = []
@@ -566,5 +567,5 @@ class PoolsAPI(BaseAPI):
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/pools/{pool_address}/indicators", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/{path_segment('pool_address', pool_address)}/indicators", params=params)
         return IndicatorResponse(**data)

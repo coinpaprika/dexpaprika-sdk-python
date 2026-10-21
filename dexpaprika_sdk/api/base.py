@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING, Callable, TypeVar, Set
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 
 if TYPE_CHECKING:
@@ -89,6 +90,29 @@ TOKEN_FILTER_PARAM_MAP: Dict[str, str] = {
     "volume_24h_min": "volume_usd_24h_min",
     "volume_24h_max": "volume_usd_24h_max",
 }
+
+
+# Separators and anything a URL parser or the server could decode into one:
+# slash, backslash, query and fragment marks, percent escapes, whitespace and
+# control characters. Ids the API returns do not contain these; Sui and Aptos
+# ids with "::" and TON addresses with "-" and "_" are unaffected.
+_UNSAFE_SEGMENT = re.compile(r"[/\\?#%\s\x00-\x1f\x7f]")
+
+
+def path_segment(name: str, value: Any) -> str:
+    """Return ``value`` unchanged if it is safe as one URL path segment, else raise.
+
+    A value such as ``../../usage`` or ``x?limit=1000`` would otherwise send the
+    request, and the client's API key, to a different path or query than the
+    method was written for.
+    """
+    if (
+        not isinstance(value, str)
+        or value in ("", ".", "..")
+        or _UNSAFE_SEGMENT.search(value)
+    ):
+        raise ValueError(f"{name} must be a single id or address, got {str(value)[:100]!r}")
+    return value
 
 
 def map_pool_sort_field(value: Optional[str]) -> str:

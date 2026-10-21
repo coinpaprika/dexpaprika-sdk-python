@@ -1,6 +1,6 @@
 from typing import Optional
 
-from .base import BaseAPI
+from .base import BaseAPI, path_segment
 from ..models.networks import DexesResponse
 
 
@@ -31,5 +31,5 @@ class DexesAPI(BaseAPI):
             "page": page,
             "limit": limit
         }
-        data = self._get(f"/networks/{network}/dexes", params=params)
+        data = self._get(f"/networks/{path_segment('network', network)}/dexes", params=params)
         return DexesResponse(**data) 

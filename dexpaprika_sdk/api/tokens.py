@@ -2,6 +2,7 @@ import warnings
 from typing import Literal, Optional, Dict, Any, Set, List, Union
 
 from .base import (
+    path_segment,
     BaseAPI, map_token_sort_field, map_pool_sort_field, map_filter_params,
     TOKEN_FILTER_PARAM_MAP, VALID_INDICATOR_VALUES, VALID_INDICATOR_INTERVAL_VALUES,
 )
@@ -40,7 +41,7 @@ class TokensAPI(BaseAPI):
         self._validate_required("network_id", network_id)
         self._validate_required("token_address", token_address)
         
-        data = self._get(f"/networks/{network_id}/tokens/{token_address}")
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/tokens/{path_segment('token_address', token_address)}")
         return TokenDetails(**data)
 
     @track_perf
@@ -105,7 +106,7 @@ class TokensAPI(BaseAPI):
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/tokens/{token_address}/ohlcv", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/tokens/{path_segment('token_address', token_address)}/ohlcv", params=params)
         return [OHLCVRecord(**item) for item in data]
 
     @track_perf
@@ -191,7 +192,7 @@ class TokensAPI(BaseAPI):
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/pools/search", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/pools/search", params=params)
 
         # ensure results exists
         if 'results' not in data:
@@ -248,7 +249,7 @@ class TokensAPI(BaseAPI):
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/tokens/search", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/tokens/search", params=params)
 
         if 'results' not in data:
             data['results'] = []
@@ -346,7 +347,7 @@ class TokensAPI(BaseAPI):
         params.update(map_filter_params(filters, TOKEN_FILTER_PARAM_MAP))
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/tokens/search", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/tokens/search", params=params)
 
         if 'results' not in data:
             data['results'] = []
@@ -380,7 +381,7 @@ class TokensAPI(BaseAPI):
 
         params = {"tokens": ",".join(tokens)}
 
-        data = self._get(f"/networks/{network_id}/multi/prices", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/multi/prices", params=params)
         return [TokenPrice(**item) for item in data]
 
     @track_perf
@@ -491,5 +492,5 @@ class TokensAPI(BaseAPI):
         }
         params = self._clean_params(params)
 
-        data = self._get(f"/networks/{network_id}/tokens/{token_address}/indicators", params=params)
+        data = self._get(f"/networks/{path_segment('network_id', network_id)}/tokens/{path_segment('token_address', token_address)}/indicators", params=params)
         return IndicatorResponse(**data)
