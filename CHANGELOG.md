@@ -5,6 +5,21 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.3] - 2026-11-16
+
+### Fixed
+- `tokens.filter()` sent `fdv_min` and `fdv_max` under those names. The API
+  calls them `fdv_usd_min` and `fdv_usd_max`, so today the FDV bounds are
+  ignored and the results are not filtered by FDV. They now go out under the
+  right names; the argument names do not change. From 23 November 2026 the API
+  answers `400` to a query parameter an endpoint does not accept, so before
+  this fix any call that set an FDV bound would have failed from that date.
+
+### Changed
+- Python 3.10 or newer is required. 3.8 and 3.9 are past end of life and no
+  longer receive security fixes, and GitHub's runners no longer provide them.
+  pip keeps installing 0.14.2 on those versions. Tests now run on 3.10 to 3.13.
+
 ## [0.14.2] - 2026-10-21
 
 ### Security

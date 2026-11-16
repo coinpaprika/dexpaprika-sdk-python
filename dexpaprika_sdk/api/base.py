@@ -78,9 +78,10 @@ POOL_FILTER_PARAM_MAP: Dict[str, str] = {
 }
 
 # Legacy filter param name -> canonical /tokens/search query param name.
-# Names not listed here (liquidity_usd_min, fdv_min, fdv_max, txns_24h_min,
-# created_after, created_before, price_change_percentage_24h_min/_max) are
-# already canonical and pass through.
+# Names not listed here (liquidity_usd_min, txns_24h_min, created_after,
+# created_before, price_change_percentage_24h_min/_max) are already canonical
+# and pass through. fdv_min/fdv_max are the SDK's argument names; the API
+# calls them fdv_usd_min/fdv_usd_max.
 #
 # The filter side does not mirror the sort side. /tokens/search applies
 # price_change_percentage_24h_min and _max. It answers 200 to the 6h, 1h and 5m
@@ -90,6 +91,8 @@ POOL_FILTER_PARAM_MAP: Dict[str, str] = {
 TOKEN_FILTER_PARAM_MAP: Dict[str, str] = {
     "volume_24h_min": "volume_usd_24h_min",
     "volume_24h_max": "volume_usd_24h_max",
+    "fdv_min": "fdv_usd_min",
+    "fdv_max": "fdv_usd_max",
 }
 
 
