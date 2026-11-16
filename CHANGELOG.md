@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   answers `400` to a query parameter an endpoint does not accept, so before
   this fix any call that set an FDV bound would have failed from that date.
 
+### Changed
+- Python 3.10 or newer is required. 3.8 and 3.9 are past end of life and no
+  longer receive security fixes, and GitHub's runners no longer provide them.
+  pip keeps installing 0.14.2 on those versions. Tests now run on 3.10 to 3.13.
+
 ## [0.14.2] - 2026-10-21
 
 ### Security
