@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.4] - 2026-11-23
+
 ### Changed
 - Documentation only: `tokens.get_multi_prices()` needs an API key. Since
   18 November 2026 the API answers a keyless call with `403` and error
