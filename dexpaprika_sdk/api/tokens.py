@@ -363,6 +363,11 @@ class TokensAPI(BaseAPI):
         """
         Get batch prices for multiple tokens on a network.
 
+        Needs an API key. A free key is enough, and it works on the default
+        host (api.dexpaprika.com). Without one the API answers 403 with error
+        "plan_required", raised as ApiHTTPError (error_code "plan_required",
+        required_tier "free"). Get a free key at https://console.dexpaprika.com
+
         Args:
             network_id: Network ID (e.g., "ethereum", "solana")
             tokens: List of token addresses (max 10)

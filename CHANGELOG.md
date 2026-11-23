@@ -5,6 +5,15 @@ All notable changes to the DexPaprika SDK for Python will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Documentation only: `tokens.get_multi_prices()` needs an API key. Since
+  18 November 2026 the API answers a keyless call with `403` and error
+  `plan_required`, which the SDK raises as `ApiHTTPError`. A free key is
+  enough and works on the default host. The docstring and the README example
+  now say so and build the client with `api_key`. Nothing in the code changes.
+
 ## [0.14.3] - 2026-11-16
 
 ### Fixed

@@ -542,8 +542,11 @@ for token in filtered.results:
 
 #### Get batch prices for multiple tokens
 
+This endpoint needs an API key. A free key is enough and works on the default host; without one the API answers 403 `plan_required`, which the SDK raises as `ApiHTTPError`. Get a free key in the [console](https://console.dexpaprika.com), and see the [plans](https://dexpaprika.com/api/pricing).
+
 ```python
 # Get prices for WETH and USDC in one request
+client = DexPaprikaClient(api_key="api_your_key_here")
 prices = client.tokens.get_multi_prices(
     network_id="ethereum",
     tokens=[
