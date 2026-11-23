@@ -558,7 +558,12 @@ def test_tokens_filter_multiple_params(client, test_data):
     assert filtered is not None
     assert hasattr(filtered, 'results')
 
-# Multi Prices API tests
+# Multi Prices API tests. The client fixture reads DEXPAPRIKA_API_KEY from the
+# environment, so these two run with a key and skip without one.
+@pytest.mark.skipif(
+    not os.environ.get("DEXPAPRIKA_API_KEY"),
+    reason="needs DEXPAPRIKA_API_KEY: batch prices require an API key since 2026-11-18",
+)
 def test_tokens_get_multi_prices(client, test_data):
     """Test getting batch prices for multiple tokens."""
     prices = client.tokens.get_multi_prices(
@@ -577,6 +582,10 @@ def test_tokens_get_multi_prices(client, test_data):
     assert hasattr(price, 'chain')
     assert hasattr(price, 'price_usd')
 
+@pytest.mark.skipif(
+    not os.environ.get("DEXPAPRIKA_API_KEY"),
+    reason="needs DEXPAPRIKA_API_KEY: batch prices require an API key since 2026-11-18",
+)
 def test_tokens_get_multi_prices_single(client, test_data):
     """Test batch prices with a single token."""
     prices = client.tokens.get_multi_prices(
